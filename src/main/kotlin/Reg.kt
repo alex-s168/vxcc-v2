@@ -161,7 +161,7 @@ data class Reg(
         }
 
         fun zextCompute(env: Env): Owner {
-            val regSize = env.makeSize(size)
+            val regSize = env.makeRegSize(size)
             val temp = env.forceAllocReg(Owner.Flags(Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.Type.INT))
             reg.reducedAsReg(regSize).emitMov(env, temp.storage)
             temp.storage.emitStaticMask(env, temp.storage,  (2.0).pow(size).toLong() - 1)

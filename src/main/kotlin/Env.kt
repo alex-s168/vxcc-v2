@@ -1,7 +1,5 @@
 package vxcc
 
-import kotlin.math.ceil
-
 data class Env(
     val target: Target
 ) {
@@ -39,6 +37,7 @@ data class Env(
     }
 
     var verboseAsm = false
+    var regAlloc = true
 
     internal var fpuUse: Boolean = false
 
@@ -181,10 +180,27 @@ data class Env(
         return new
     }
 
+    private val stackAlloc = object {
+        inner class Elem(
+            val deallocateable: Boolean,
+            val byteSize: Int,
+        )
+
+        inner class Frame(
+            val elements: MutableList<Elem>,
+            var nextArr: Long
+        )
+
+        val frames = mutableListOf<Frame>()
+        val sp = 0L
+    }
+
     fun alloc(flags: Owner.Flags): Owner {
-        val reg = allocReg(flags)
-        if (reg != null)
-            return reg
+        if (regAlloc) {
+            val reg = allocReg(flags)
+            if (reg != null)
+                return reg
+        }
 
         TODO("implement stack alloc and static alloc")
     }
@@ -207,7 +223,7 @@ data class Env(
             else -> TODO("dealloc")
         }
 
-    fun makeSize(size: Int): Int =
+    fun makeRegSize(size: Int): Int =
         if (size <= 8) 8
         else if (size <= 16) 16
         else if (size <= 32) 32
