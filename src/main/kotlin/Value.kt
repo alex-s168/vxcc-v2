@@ -9,6 +9,8 @@ interface Value {
 
     fun emitStaticMask(env: Env, dest: Storage, mask: Long)
 
+    fun emitMask(env: Env, mask: Value, dest: Storage)
+
     /**
      * Returns a value object that maps to the lower x bits of the storage.
      * x can not be any value.
@@ -25,6 +27,10 @@ interface Value {
     fun emitShiftLeft(env: Env, other: Value, dest: Storage)
 
     fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage)
+
+    fun emitSignedMax(env: Env, other: Value, dest: Storage)
+
+    fun emitExclusiveOr(env: Env, other: Value, dest: Storage)
 }
 
 /** dest = this + index * stride */

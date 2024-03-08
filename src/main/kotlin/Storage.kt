@@ -49,6 +49,15 @@ interface Storage: Value {
 
                 override fun emitZero(env: Env) =
                     throw Exception("Storage.none() used!!!!")
+
+                override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitSignedMax(env: Env, other: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitMask(env: Env, mask: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
             }
     }
 }

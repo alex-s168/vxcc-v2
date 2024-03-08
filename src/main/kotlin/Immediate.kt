@@ -1,5 +1,6 @@
 package vxcc
 
+import kotlin.math.max
 import kotlin.math.pow
 
 class Immediate(
@@ -61,4 +62,16 @@ class Immediate(
 
     override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
         env.immediate(value shl by.toInt()).emitMov(env, dest)
+
+    override fun emitSignedMax(env: Env, other: Value, dest: Storage) =
+        when (other) {
+            is Immediate -> Immediate(max(this.value, other.value)).emitMov(env, dest)
+            else -> other.emitSignedMax(env, this, dest)
+        }
+
+    override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
+        TODO("immediate xor")
+
+    override fun emitMask(env: Env, mask: Value, dest: Storage) =
+        TODO("immediate mask")
 }

@@ -296,6 +296,15 @@ data class Reg(
         override fun emitZero(env: Env) {
             TODO("zero reg view")
         }
+
+        override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
+            TODO("xor reg view")
+
+        override fun emitSignedMax(env: Env, other: Value, dest: Storage) =
+            TODO("signed max reg view")
+
+        override fun emitMask(env: Env, mask: Value, dest: Storage) =
+            TODO("mask reg view")
     }
 
     /**
@@ -435,6 +444,7 @@ data class Reg(
         }
     }
 
+    // TODO: use lea for certain things
     override fun emitAdd(env: Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "add")
 
@@ -442,18 +452,31 @@ data class Reg(
         emitShiftLeft(env, env.immediate(by), dest)
 
     override fun emitMul(env: Env, other: Value, dest: Storage) =
-        if (this.isGP() && this.localId == 0) // al, ax, eax, rax
-            when (other) {
-                is Immediate -> env.emit("mul ${other.value}")
-                else -> other.useInGPReg(env) { reg ->
-                    env.emit("mul ${reg.name}")
-                }
-            }
+        if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax
+            env.emit("mul ${other.name}")
         else
             emitSignedMul(env, other, dest) // TODO: wtf
 
-    override fun emitSignedMul(env: Env, other: Value, dest: Storage) =
-        binaryOp0(env, other, dest, "imul")
+    override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+        if (!this.isGP())
+            throw Exception("Can only perform scalar scalar binary op with GP reg!")
+
+        when (other) {
+            is Immediate -> dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
+                env.emit("imul ${destReg.name}, ${this.name}, ${other.value}")
+            }
+            else -> other.useInGPReg(env) { reg ->
+                if (this == dest) {
+                    env.emit("imul ${this.name}, ${reg.name}")
+                } else {
+                    dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
+                        emitMov(env, destReg)
+                        env.emit("imul ${destReg.name}, ${reg.name}")
+                    }
+                }
+            }
+        }
+    }
 
     override fun emitShiftLeft(env: Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "shl")
@@ -465,4 +488,49 @@ data class Reg(
 
             else -> TODO("zero reg $type")
         }
+
+    private fun emitCwdCdqCqo(env: Env) {
+        assert(this.type == Type.GP && this.localId == 0)
+        when (this.totalWidth) {
+            8 -> throw Exception("cwd/cdq/cqo not available for 8 bit regs")
+            16 -> env.emit("cwd")
+            32 -> env.emit("cdq")
+            64 -> env.emit("cqo")
+            else -> throw Exception("wtf")
+        }
+    }
+
+    override fun emitSignedMax(env: Env, other: Value, dest: Storage) =
+        when (other) {
+            is Immediate -> {
+                if (other.value == 0L && dest is Reg && dest.type == Type.GP && dest.localId == 0) {
+                    val edx = env.allocReg(
+                        env.getRegByIndex(Index(Type.GP, 2)),
+                        Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.Type.UINT)
+                    )
+                    if (edx == null) {
+                        TODO("signed *ax = max(0, *reg) if *dx not free")
+                    } else {
+                        if (this != dest)
+                            emitMov(env, dest)
+                        // cdq
+                        // and edx, eax
+                        // xor eax, edx
+                        emitCwdCdqCqo(env)
+                        edx.storage.emitMask(env, this, edx.storage)
+                        this.emitExclusiveOr(env, edx.storage, this)
+                        env.dealloc(edx)
+                    }
+                }
+                else TODO("signed max")
+            }
+
+            else -> TODO("signed max")
+        }
+
+    override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
+        TODO("reg xor")
+
+    override fun emitMask(env: Env, mask: Value, dest: Storage) =
+        TODO("reg mask")
 }

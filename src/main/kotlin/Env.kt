@@ -48,6 +48,17 @@ data class Env(
     var regAlloc = true
     var optMode = OptMode.SPEED
 
+    val optimal = object {
+        /** overall fastest boolean type */
+        val boolFast = Owner.Flags(Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.UINT)
+
+        /** overall smallest boolean type */
+        val boolSmall = boolFast
+
+        /** fastest boolean type if speed opt, otherwise smallest boolean type */
+        val bool = if (optMode == OptMode.SPEED) boolFast else boolSmall
+    }
+
     internal var fpuUse: Boolean = false
 
     internal var mmxUse: Boolean = false
@@ -91,7 +102,7 @@ data class Env(
         return null
     }
 
-    private fun getRegByIndex(index: Reg.Index): BestRegResult =
+    fun getRegByIndex(index: Reg.Index): BestRegResult =
         tryClaim(index) ?: BestRegResult(index, true)
 
     private fun getBestAvailableReg(flags: Owner.Flags): BestRegResult? {
@@ -100,7 +111,14 @@ data class Env(
         var found: Reg.Index? = null
 
         if (gp && (flags.totalWidth <= 32 || flags.totalWidth <= 64 && target.amd64_v1)) {
-            for (i in 0..5) {
+            for (i in arrayOf(  // allocating eax and edx last may improve emitSignedMax // TODO: make IR lowerer use eax for variables which are used in max(0, x)
+                1, // b
+                2, // c
+                4, // si
+                5, // di
+                0, // a
+                3, // d
+            )) {
                 found = Reg.Index(Reg.Type.GP, i)
                 return tryClaim(found) ?: continue
             }
@@ -154,7 +172,7 @@ data class Env(
         return found?.let { BestRegResult(it, true) }
     }
 
-    private fun allocReg(reg: BestRegResult, flags: Owner.Flags): Owner? =
+    fun allocReg(reg: BestRegResult, flags: Owner.Flags): Owner? =
         if (reg.used) null
         else Reg
             .from(reg.index, flags.totalWidth)

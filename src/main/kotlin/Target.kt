@@ -3,6 +3,7 @@ package vxcc
 class Target {
     var fpu = false
     var mmx = false
+    var is32 = true // TODO: add proper support for 16 bit
     var sse1 = false
         set(value) {
             field = value

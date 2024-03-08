@@ -91,7 +91,7 @@ if they're Next to eachother in memory you can Somewhat opt it by doing
   mov rbx, ...
   mov rax, [rbx]
   shl rax, 2
- mov [rbx + ...], rax
+  mov [rbx + ...], rax
 which is shorter because you store only an offset the second time and not the whole thing
  */
 
