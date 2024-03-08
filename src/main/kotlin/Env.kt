@@ -3,41 +3,50 @@ package vxcc
 data class Env(
     val target: Target
 ) {
-    fun emit(a: Any) =
-        println(a.toString())
+    fun emit(a: String) =
+        println(a)
 
-    val registers = mutableMapOf<Reg.Index, Owner?>()
+    fun emitBytes(bytes: ByteArray) =
+        emit("db ${bytes.joinToString { "0x${it.toString(16)}" }}")
+
+    val registers = mutableMapOf<Reg.Index, Obj<Owner?>>()
 
     init {
         for (i in 0..5)
-            registers[Reg.Index(Reg.Type.GP, i)] = null
+            registers[Reg.Index(Reg.Type.GP, i)] = Obj(null)
 
         if (target.amd64_v1) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.GP64EX, i)] = null
+                registers[Reg.Index(Reg.Type.GP64EX, i)] = Obj(null)
 
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.XMM64, i)] = null
+                registers[Reg.Index(Reg.Type.XMM64, i)] = Obj(null)
         }
 
         if (target.mmx) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.MM, i)] = null
+                registers[Reg.Index(Reg.Type.MM, i)] = Obj(null)
         }
 
         if (target.sse1) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.XMM, i)] = null
+                registers[Reg.Index(Reg.Type.XMM, i)] = Obj(null)
         }
 
         if (target.avx512f) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.ZMMEX, i)] = null
+                registers[Reg.Index(Reg.Type.ZMMEX, i)] = Obj(null)
         }
+    }
+
+    enum class OptMode {
+        SPEED,
+        SIZE,
     }
 
     var verboseAsm = false
     var regAlloc = true
+    var optMode = OptMode.SPEED
 
     internal var fpuUse: Boolean = false
 
@@ -59,30 +68,34 @@ data class Env(
         val used: Boolean,
     )
 
-    fun getBestAvailableReg(flags: Owner.Flags): BestRegResult? {
-        val gp = flags.use in arrayOf(Use.SCALAR_AIRTHM, Use.STORE) && !flags.type.float && !flags.type.vector
+    private fun tryClaim(index: Reg.Index): BestRegResult? {
+        val owner = registers.getOrElse(index) {
+            throw Exception("Register with index $index not supported on target $target!")
+        }.v ?: return BestRegResult(index, false)
 
-        fun tryClaim(index: Reg.Index): BestRegResult? {
-            val owner = registers[index]
-                ?: return BestRegResult(index, false)
-
-            if (owner.shouldBeDestroyed) {
-                registers[index] = null
-                return BestRegResult(index, false)
-            }
-
-            if (owner.canBeDepromoted != null) {
-                registers[index] = Owner.temp() // we don't want alloc() to return the same reg
-                val new = alloc(owner.flags)
-                owner.storage.emitMov(this, new.storage)
-                dealloc(owner)
-                owner.storage = new.storage
-                registers[index] = null
-                return BestRegResult(index, false)
-            }
-
-            return null
+        if (owner.shouldBeDestroyed) {
+            registers[index] = Obj(null)
+            return BestRegResult(index, false)
         }
+
+        if (owner.canBeDepromoted != null) {
+            registers[index] = Obj(Owner.temp()) // we don't want alloc() to return the same reg
+            val new = alloc(owner.flags)
+            owner.storage.emitMov(this, new.storage)
+            dealloc(owner)
+            owner.storage = new.storage
+            registers[index] = Obj(null)
+            return BestRegResult(index, false)
+        }
+
+        return null
+    }
+
+    private fun getRegByIndex(index: Reg.Index): BestRegResult =
+        tryClaim(index) ?: BestRegResult(index, true)
+
+    private fun getBestAvailableReg(flags: Owner.Flags): BestRegResult? {
+        val gp = flags.use in arrayOf(Use.SCALAR_AIRTHM, Use.STORE) && !flags.type.float && !flags.type.vector
 
         var found: Reg.Index? = null
 
@@ -141,44 +154,57 @@ data class Env(
         return found?.let { BestRegResult(it, true) }
     }
 
-    fun allocReg(flags: Owner.Flags): Owner? =
-        getBestAvailableReg(flags)?.let {
-            if (it.used) null
-            else Reg
-                .from(it.index, flags.totalWidth)
-                .let { r ->
-                    if (verboseAsm)
-                        println("; alloc reg ${r.name}")
-                    val o = Owner(r, flags)
-                    registers[it.index] = o
-                    o
-                }
-        }
+    private fun allocReg(reg: BestRegResult, flags: Owner.Flags): Owner? =
+        if (reg.used) null
+        else Reg
+            .from(reg.index, flags.totalWidth)
+            .let { r ->
+                if (verboseAsm)
+                    println("; alloc reg ${r.name}")
+                val o = Owner(r, flags)
+                registers[reg.index] = Obj(o)
+                o
+            }
 
-    fun forceAllocReg(flags: Owner.Flags): Owner {
-        val reg = getBestAvailableReg(flags)
-            ?: throw Exception("No compatible register for $flags")
-
-
+    private fun forceAllocReg(reg: BestRegResult, flags: Owner.Flags): Owner {
         if (!reg.used) {
             val r = Reg.from(reg.index, flags.totalWidth)
             if (verboseAsm)
                 println("; alloc reg ${r.name}")
             val o = Owner(r, flags)
-            registers[reg.index] = o
+            registers[reg.index] = Obj(o)
             return o
         }
 
-        val owner = registers[reg.index]!!
+        val owner = registers[reg.index]!!.v!!
         val temp = alloc(owner.flags)
         owner.storage.emitMov(this, temp.storage)
         val new = owner.copy()
         owner.storage = temp.storage
-        registers[reg.index] = new
+        registers[reg.index] = Obj(new)
         if (verboseAsm)
             println("; alloc reg ${new.storage.asReg().name}")
         return new
     }
+
+    fun forceAllocReg(flags: Owner.Flags, reg: Reg.Index): Owner =
+        forceAllocReg(getRegByIndex(reg), flags)
+
+    fun forceAllocReg(flags: Owner.Flags, name: String): Owner =
+        forceAllocReg(flags, Reg.fromName(name).asIndex())
+
+    fun forceAllocRegRecommend(flags: Owner.Flags, recommend: Reg.Index): Owner =
+        allocReg(getRegByIndex(recommend), flags) ?: forceAllocReg(flags)
+
+    fun forceAllocRegRecommend(flags: Owner.Flags, recommend: String): Owner =
+        forceAllocRegRecommend(flags, Reg.fromName(recommend).asIndex())
+
+    fun allocReg(flags: Owner.Flags): Owner? =
+        getBestAvailableReg(flags)?.let { allocReg(it, flags) }
+
+    fun forceAllocReg(flags: Owner.Flags): Owner =
+        getBestAvailableReg(flags)?.let { forceAllocReg(it, flags) }
+            ?: throw Exception("No compatible register for $flags")
 
     private val stackAlloc = object {
         inner class Elem(
@@ -213,11 +239,11 @@ data class Env(
                 if (verboseAsm)
                     println("; dealloc reg ${reg.name}")
                 reg.onDealloc(owner)
-                if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") } == null)
+                if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") }.v == null)
                     throw Exception("Attempting to deallocate register twice! Double allocated?")
                 if (id.type == Reg.Type.MM)
                     mmxUse = false
-                registers[id] = null
+                registers[id] = Obj(null)
             }
 
             else -> TODO("dealloc")

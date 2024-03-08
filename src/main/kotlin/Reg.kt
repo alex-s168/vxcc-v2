@@ -8,6 +8,9 @@ data class Reg(
     val type: Type,
     val localId: Int,
 ): Storage {
+    fun isGP() =
+        this.type == Type.GP || this.type == Type.GP64EX
+
     fun asIndex(): Index =
         Index(type, localId)
 
@@ -15,6 +18,8 @@ data class Reg(
         val type: Type,
         val localId: Int,
     )
+
+    // TODO: upper 8 bits of 16 bit gp registers
 
     enum class Type {
         /** on amd64_v1: 6 64-bit GP registers; else 32-bit;
@@ -37,6 +42,73 @@ data class Reg(
     }
 
     companion object {
+        fun fromName(name: String): Reg {
+            when (name) {
+                "ax" -> return Reg(name, 16, Type.GP, 0)
+                "bx" -> return Reg(name, 16, Type.GP, 1)
+                "cx" -> return Reg(name, 16, Type.GP, 2)
+                "dx" -> return Reg(name, 16, Type.GP, 3)
+                "si" -> return Reg(name, 16, Type.GP, 4)
+                "di" -> return Reg(name, 16, Type.GP, 5)
+
+                "al" -> return Reg(name, 8, Type.GP, 0)
+                "bl" -> return Reg(name, 8, Type.GP, 1)
+                "cl" -> return Reg(name, 8, Type.GP, 2)
+                "dl" -> return Reg(name, 8, Type.GP, 3)
+                "sil" -> return Reg(name, 8, Type.GP, 4)
+                "dil" -> return Reg(name, 8, Type.GP, 5)
+            }
+
+            if (name.startsWith('e'))
+                return Reg(name, 32, Type.GP, fromName(name.substring(1)).localId)
+
+            if (name.startsWith('r')) {
+                if (name.endsWith('b'))
+                    return fromName(name.dropLast(1)).reducedAsReg(8)
+
+                if (name.endsWith('w'))
+                    return fromName(name.dropLast(1)).reducedAsReg(16)
+
+                if (name.endsWith('d'))
+                    return fromName(name.dropLast(1)).reducedAsReg(32)
+
+                val substr = name.substring(1)
+                return substr.toIntOrNull()?.let {
+                    if (it !in 8..15)
+                        throw Exception("Register $name does not exist!")
+                    Reg(name, 64, Type.GP64EX, it - 8)
+                } ?: Reg(name, 64, Type.GP, fromName(substr).localId)
+            }
+
+            if (name.startsWith("mm")) {
+                val id = name.substring(2).toIntOrNull()
+                    ?: throw Exception("Register $name does not exist!")
+                if (id !in 0..7)
+                    throw Exception("Register $name does not exist!")
+                return Reg(name, 64, Type.MM, id)
+            }
+
+            val xmm = name.startsWith("xmm")
+            val ymm = name.startsWith("ymm")
+            val zmm = name.startsWith("zmm")
+            if (xmm || ymm || zmm) {
+                val id = name.substring(3).toIntOrNull()
+                    ?: throw Exception("Register $name does not exist!")
+                val size = if (xmm) 128 else if (ymm) 256 else 512
+                return when (id) {
+                    in 0..7 -> Reg(name, size, Type.XMM, id)
+                    in 8..15 -> Reg(name, size, Type.XMM64, id)
+                    in 16..23 -> {
+                        if (!zmm) throw Exception("Register $name does not exist!")
+                        Reg(name, 512, Type.ZMMEX, id)
+                    }
+                    else -> throw Exception("Register $name does not exist!")
+                }
+            }
+
+            throw Exception("Register $name does not exist!")
+        }
+
         fun from(index: Index, size: Int): Reg =
             when (index.type) {
                 Type.GP -> getGP(index.localId, size)
@@ -96,7 +168,7 @@ data class Reg(
                 8 -> Reg("r${id}b", 8, Type.GP64EX, localId)
                 16 -> Reg("r${id}w", 16, Type.GP64EX, localId)
                 32 -> Reg("r${id}d", 32, Type.GP64EX, localId)
-                64 -> Reg("rid", 64, Type.GP64EX, localId)
+                64 -> Reg("r$id", 64, Type.GP64EX, localId)
                 else -> throw Exception("Invalid GP64EX register size!")
             }
         }
@@ -195,6 +267,35 @@ data class Reg(
             else
                 View(reg, to)
         }
+
+        override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitStaticShiftLeft(env, by, dest)
+        }
+
+        override fun emitShiftLeft(env: Env, other: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitShiftLeft(env, other, dest)
+        }
+
+        override fun emitMul(env: Env, other: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitMul(env, other, dest)
+        }
+
+        override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitSignedMul(env, other, dest)
+        }
+
+        override fun emitAdd(env: Env, other: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitAdd(env, other, dest)
+        }
+
+        override fun emitZero(env: Env) {
+            TODO("zero reg view")
+        }
     }
 
     /**
@@ -216,7 +317,10 @@ data class Reg(
      * Move into destination.
      * Truncate if destination smaller
      */
-    override fun emitMov(env: Env, dest: Storage) =
+    override fun emitMov(env: Env, dest: Storage) {
+        if (dest == this)
+            return
+
         when (dest) {
             is Reg -> {
                 if (dest.totalWidth > totalWidth)
@@ -255,8 +359,7 @@ data class Reg(
                         if (dest.reg.type in arrayOf(Type.XMM, Type.XMM64)) {
                             val dst = dest.reg.reducedAsReg(128)
                             env.emit("movq2dq ${dst.name}, $name")
-                        }
-                        else {
+                        } else {
                             TODO("mov from mmx to reg view $dest")
                         }
                     }
@@ -267,6 +370,7 @@ data class Reg(
 
             else -> TODO("mov from $this to $dest")
         }
+    }
 
     override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
         fun stupid() {
@@ -279,12 +383,12 @@ data class Reg(
 
         // TODO: there is `pand` (for mmx, sse* and avx*)
 
-        if (this.type !in arrayOf(Type.GP, Type.GP64EX))
+        if (!this.isGP())
             throw Exception("Can only static mask register values which are stored in GP or GP64EX registers")
 
         when (dest) {
             is Reg -> {
-                if (dest.type !in arrayOf(Type.GP, Type.GP64EX)) {
+                if (!dest.isGP()) {
                     stupid()
                 }
                 else {
@@ -308,4 +412,57 @@ data class Reg(
 
     fun onDealloc(old: Owner) =
         views.forEach { it.onDealloc(old) }
+
+    private fun binaryOp0(env: Env, other: Value, dest: Storage, op: String) {
+        if (!this.isGP())
+            throw Exception("Can only perform scalar scalar binary op with GP reg!")
+
+        if (dest == this) {
+            when (other) {
+                is Immediate -> env.emit("$op $name, ${other.value}")
+                else -> other.useInGPReg(env) { reg ->
+                    env.emit("$op $name, ${reg.name}")
+                }
+            }
+        }
+        else {
+            dest.useInGPRegWriteBack(env, copyInBegin = false) { reg ->
+                if (!reg.isGP())
+                    throw Exception("Can only perform scalar binary op into GP reg!")
+                emitMov(env, reg)
+                reg.binaryOp0(env, other, reg, op)
+            }
+        }
+    }
+
+    override fun emitAdd(env: Env, other: Value, dest: Storage) =
+        binaryOp0(env, other, dest, "add")
+
+    override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
+        emitShiftLeft(env, env.immediate(by), dest)
+
+    override fun emitMul(env: Env, other: Value, dest: Storage) =
+        if (this.isGP() && this.localId == 0) // al, ax, eax, rax
+            when (other) {
+                is Immediate -> env.emit("mul ${other.value}")
+                else -> other.useInGPReg(env) { reg ->
+                    env.emit("mul ${reg.name}")
+                }
+            }
+        else
+            emitSignedMul(env, other, dest) // TODO: wtf
+
+    override fun emitSignedMul(env: Env, other: Value, dest: Storage) =
+        binaryOp0(env, other, dest, "imul")
+
+    override fun emitShiftLeft(env: Env, other: Value, dest: Storage) =
+        binaryOp0(env, other, dest, "shl")
+
+    override fun emitZero(env: Env) =
+        when (type) {
+            Type.GP,
+            Type.GP64EX -> env.emit("xor $name, $name")
+
+            else -> TODO("zero reg $type")
+        }
 }

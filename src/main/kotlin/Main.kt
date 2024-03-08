@@ -11,11 +11,14 @@ fun main() {
 
     val a = env.alloc(Owner.Flags(Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
     val b = env.alloc(Owner.Flags(Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
+    val o = env.alloc(Owner.Flags(Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
 
     env.immediate(5).emitMov(env, a.storage)
+    env.immediate(20).emitMov(env, b.storage)
 
-    a.storage.reduced(env, 40).emitMov(env, b.storage.reducedStorage(env, 32))
+    a.emitArrayOffset(env, b, 5, o.storage)
 
     env.dealloc(a)
     env.dealloc(b)
+    env.dealloc(o)
 }

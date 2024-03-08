@@ -12,6 +12,11 @@ interface Storage: Value {
      */
     fun reducedStorage(env: Env, to: Int): Storage
 
+    /**
+     * Zeros out the storage.
+     */
+    fun emitZero(env: Env)
+
     companion object {
         fun none(): Storage =
             object : Storage {
@@ -25,6 +30,24 @@ interface Storage: Value {
                     throw Exception("Storage.none() used!!!!")
 
                 override fun reduced(env: Env, to: Int): Value =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitSignedMul(env: Env, other: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitShiftLeft(env: Env, other: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitMul(env: Env, other: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitAdd(env: Env, other: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitZero(env: Env) =
                     throw Exception("Storage.none() used!!!!")
             }
     }
