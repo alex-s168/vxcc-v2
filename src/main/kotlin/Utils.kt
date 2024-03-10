@@ -1,10 +1,11 @@
 package vxcc
 
-fun Value.getWidth() =
+fun Value.getWidth(): Int =
     when (this) {
         is Reg -> this.totalWidth
         is Reg.View -> this.size
-        is Immediate -> 64 // TODO: uhh
+        is Immediate -> TODO("width of imm")
+        is StackSlot -> this.width
         else -> TODO("getWidth() for type")
     }
 

@@ -282,4 +282,10 @@ data class Env(
 
     fun immediate(value: Double): Immediate =
         immediate(value.toRawBits())
+
+    fun staticAlloc(width: Int, init: ByteArray?): MemStorage {
+        val arr = init ?: ByteArray(width)
+        require(arr.size == width)
+        TODO()
+    }
 }
