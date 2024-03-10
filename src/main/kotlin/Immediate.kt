@@ -63,6 +63,18 @@ class Immediate(
     override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
         env.immediate(value shl by.toInt()).emitMov(env, dest)
 
+    override fun emitShiftRight(env: Env, other: Value, dest: Storage) =
+        when (other) {
+            is Immediate -> emitStaticShiftRight(env, other.value, dest)
+            else -> dest.useInGPRegWriteBack(env, copyInBegin = false) { reg ->
+                emitMov(env, reg)
+                reg.emitShiftRight(env, other, reg)
+            }
+        }
+
+    override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) =
+        env.immediate(value shl by.toInt()).emitMov(env, dest)
+
     override fun emitSignedMax(env: Env, other: Value, dest: Storage) =
         when (other) {
             is Immediate -> Immediate(max(this.value, other.value)).emitMov(env, dest)
@@ -70,8 +82,11 @@ class Immediate(
         }
 
     override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
-        TODO("immediate xor")
+        when (other) {
+            is Immediate -> Immediate(value xor other.value).emitMov(env, dest)
+            else -> other.emitExclusiveOr(env, this, dest)
+        }
 
     override fun emitMask(env: Env, mask: Value, dest: Storage) =
-        TODO("immediate mask")
+        mask.emitMask(env, this, dest) // TODO: can recur!
 }

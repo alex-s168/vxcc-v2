@@ -28,6 +28,10 @@ interface Value {
 
     fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage)
 
+    fun emitShiftRight(env: Env, other: Value, dest: Storage)
+
+    fun emitStaticShiftRight(env: Env, by: Long, dest: Storage)
+
     fun emitSignedMax(env: Env, other: Value, dest: Storage)
 
     fun emitExclusiveOr(env: Env, other: Value, dest: Storage)

@@ -2,6 +2,8 @@ package vxcc
 
 import kotlin.math.pow
 
+// TODO: the idiot designers of amd64 decided that changing e*x zeros out the top of r*x...
+
 data class Reg(
     val name: String,
     val totalWidth: Int,
@@ -226,10 +228,11 @@ data class Reg(
 
         val zextMap = mutableMapOf<Env, Owner>()
 
-        fun onDealloc(old: Owner) {
+        fun recompute() {
             zextMap.forEach { (k, v) ->
                 k.dealloc(v)
             }
+            zextMap.clear()
         }
 
         fun zextCompute(env: Env): Owner {
@@ -247,7 +250,6 @@ data class Reg(
         }
 
         override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
-            // TODO: we can optimize this in some cases
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitStaticMask(env, dest, mask)
         }
@@ -278,6 +280,16 @@ data class Reg(
             zext.storage.emitShiftLeft(env, other, dest)
         }
 
+        override fun emitShiftRight(env: Env, other: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitShiftRight(env, other, dest)
+        }
+
+        override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitStaticShiftRight(env, by, dest)
+        }
+
         override fun emitMul(env: Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitMul(env, other, dest)
@@ -294,17 +306,24 @@ data class Reg(
         }
 
         override fun emitZero(env: Env) {
-            TODO("zero reg view")
+            reg.emitStaticMask(env, reg, (1L shl size).inv() and (1L shl reg.totalWidth))
+            recompute()
         }
 
-        override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
-            TODO("xor reg view")
+        override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitExclusiveOr(env, other, dest)
+        }
 
-        override fun emitSignedMax(env: Env, other: Value, dest: Storage) =
-            TODO("signed max reg view")
+        override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitSignedMax(env, other, dest)
+        }
 
-        override fun emitMask(env: Env, mask: Value, dest: Storage) =
-            TODO("mask reg view")
+        override fun emitMask(env: Env, mask: Value, dest: Storage) {
+            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
+            zext.storage.emitMask(env, mask, dest)
+        }
     }
 
     /**
@@ -382,37 +401,11 @@ data class Reg(
     }
 
     override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
-        fun stupid() {
-            val temp = env.forceAllocReg(Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.Type.INT))
-            emitMov(env, temp.storage)
-            temp.storage.emitStaticMask(env, temp.storage, mask)
-            temp.storage.emitMov(env, dest)
-            env.dealloc(temp)
-        }
-
-        // TODO: there is `pand` (for mmx, sse* and avx*)
-
         if (!this.isGP())
             throw Exception("Can only static mask register values which are stored in GP or GP64EX registers")
 
-        when (dest) {
-            is Reg -> {
-                if (!dest.isGP()) {
-                    stupid()
-                }
-                else {
-                    if (dest != this)
-                        emitMov(env, dest)
-
-                    env.emit("and ${dest.name}, $mask")
-                }
-            }
-
-            // TODO Reg.View
-
-            else -> {
-                stupid()
-            }
+        dest.useInGPRegWriteBack(env, copyInBegin = true) { destReg ->
+            env.emit("and ${destReg.name}, $mask")
         }
     }
 
@@ -420,7 +413,7 @@ data class Reg(
         reducedStorage(env, to)
 
     fun onDealloc(old: Owner) =
-        views.forEach { it.onDealloc(old) }
+        views.forEach { it.recompute() }
 
     private fun binaryOp0(env: Env, other: Value, dest: Storage, op: String) {
         if (!this.isGP())
@@ -444,18 +437,20 @@ data class Reg(
         }
     }
 
-    // TODO: use lea for certain things
     override fun emitAdd(env: Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "add")
 
     override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
         emitShiftLeft(env, env.immediate(by), dest)
 
+    override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) =
+        emitShiftRight(env, env.immediate(by), dest)
+
     override fun emitMul(env: Env, other: Value, dest: Storage) =
         if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax
             env.emit("mul ${other.name}")
         else
-            emitSignedMul(env, other, dest) // TODO: wtf
+            emitSignedMul(env, other, dest)
 
     override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
         if (!this.isGP())
@@ -481,12 +476,28 @@ data class Reg(
     override fun emitShiftLeft(env: Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "shl")
 
+    override fun emitShiftRight(env: Env, other: Value, dest: Storage) =
+        binaryOp0(env, other, dest, "shr")
+
     override fun emitZero(env: Env) =
         when (type) {
             Type.GP,
-            Type.GP64EX -> env.emit("xor $name, $name")
+            Type.GP64EX ->
+                if (totalWidth == 64)
+                    reducedAsReg(32).let { env.emit("xor ${it.name}, ${it.name}") }
+                else
+                    env.emit("xor $name, $name")
 
-            else -> TODO("zero reg $type")
+            Type.MM ->
+                env.emit("pxor $name, $name")
+
+            Type.XMM,
+            Type.XMM64,
+            Type.ZMMEX ->
+                if (env.optMode == Env.OptMode.SIZE)
+                    env.emit("xorps $name, $name")
+                else
+                    env.emit("pxor $name, $name")
         }
 
     private fun emitCwdCdqCqo(env: Env) {
@@ -500,7 +511,7 @@ data class Reg(
         }
     }
 
-    override fun emitSignedMax(env: Env, other: Value, dest: Storage) =
+    override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
         when (other) {
             is Immediate -> {
                 if (other.value == 0L && dest is Reg && dest.type == Type.GP && dest.localId == 0) {
@@ -509,7 +520,9 @@ data class Reg(
                         Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.Type.UINT)
                     )
                     if (edx == null) {
-                        TODO("signed *ax = max(0, *reg) if *dx not free")
+                        useInGPReg(env) {
+                            this.emitSignedMax(env, it, dest)
+                        }
                     } else {
                         if (this != dest)
                             emitMov(env, dest)
@@ -521,16 +534,32 @@ data class Reg(
                         this.emitExclusiveOr(env, edx.storage, this)
                         env.dealloc(edx)
                     }
+                } else {
+                    useInGPReg(env) {
+                        this.emitSignedMax(env, it, dest)
+                    }
                 }
-                else TODO("signed max")
             }
 
-            else -> TODO("signed max")
+            else -> {
+                if (!this.isGP())
+                    throw Exception("Can only perform scalar signed max on GP regs!")
+
+                dest.useInGPRegWriteBack(env) { dreg ->
+                    other.useInGPReg(env) { reg ->
+                        if (reg != dreg)
+                            env.emit("mov ${dreg.name}, ${reg.name}")
+                        env.emit("cmp $name, ${reg.name}")
+                        env.emit("cmovl $name, ${dreg.name}")
+                    }
+                }
+            }
         }
+    }
 
     override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
-        TODO("reg xor")
+        binaryOp0(env, other, dest, "xor")
 
     override fun emitMask(env: Env, mask: Value, dest: Storage) =
-        TODO("reg mask")
+        binaryOp0(env, mask, dest, "and")
 }

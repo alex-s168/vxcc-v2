@@ -58,6 +58,12 @@ interface Storage: Value {
 
                 override fun emitMask(env: Env, mask: Value, dest: Storage) =
                     throw Exception("Storage.none() used!!!!")
+
+                override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
+
+                override fun emitShiftRight(env: Env, other: Value, dest: Storage) =
+                    throw Exception("Storage.none() used!!!!")
             }
     }
 }
