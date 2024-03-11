@@ -1,5 +1,9 @@
 package vxcc.cg.x86
 
+import vxcc.cg.Either
+import vxcc.cg.Owner
+import vxcc.cg.Storage
+
 fun sizeStr(width: Int) =
     when (width) {
         8 -> "byte"

@@ -1,5 +1,8 @@
 package vxcc.cg.x86
 
+import vxcc.cg.Owner
+import vxcc.cg.Type
+
 fun memCpy(env: X86Env, src: MemStorage, dest: MemStorage, len: Int) {
     TODO("memcpy()")
 }

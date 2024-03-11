@@ -1,5 +1,7 @@
 package vxcc.cg.x86
 
+import vxcc.cg.Storage
+
 class StackSlot(
     val spOff: Long,
     val width: Int,

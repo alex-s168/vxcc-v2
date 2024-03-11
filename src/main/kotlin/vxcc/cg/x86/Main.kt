@@ -1,5 +1,8 @@
 package vxcc.cg.x86
 
+import vxcc.cg.Owner
+import vxcc.cg.Type
+
 fun main() {
     val target = Target().apply {
         amd64_v1 = true

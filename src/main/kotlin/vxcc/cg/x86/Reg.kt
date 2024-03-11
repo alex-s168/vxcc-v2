@@ -1,5 +1,7 @@
 package vxcc.cg.x86
 
+import vxcc.cg.Owner
+import vxcc.cg.Storage
 import kotlin.math.pow
 
 // TODO: check destination size when operating
@@ -331,7 +333,7 @@ data class Reg(
      * Returns an emittable register that maps to the lower x bits of the reg.
      * x can not be any value.
      */
-    override fun reducedStorage(env: X86Env, to: Int): Storage =
+    override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> =
         try {
             reducedAsReg(to)
         } catch (_: Exception) {

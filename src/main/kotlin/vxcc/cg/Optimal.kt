@@ -1,7 +1,5 @@
 package vxcc.cg
 
-import vxcc.vxcc.x86.Owner
-
 interface Optimal<T: Env<T>> {
     /** overall fastest boolean type */
     val boolFast: Owner.Flags
