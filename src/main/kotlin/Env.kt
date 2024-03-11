@@ -278,9 +278,14 @@ data class Env(
     fun immediate(value: Double, width: Int): Immediate =
         immediate(value.toRawBits(), width)
 
+    // TODO: 16 byte align stack alloc vals (and make sure callconv asserts that sp aligned 16, otherwise align 16)
+
     fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
+        // if speed then align 16 else align idk
+        // ymm wants align 32
+        // zmm wants align 64
         TODO()
     }
 }

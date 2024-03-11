@@ -1,5 +1,15 @@
 package vxcc
 
+fun sizeStr(width: Int) =
+    when (width) {
+        8 -> "byte"
+        16 -> "word"
+        32 -> "dword"
+        64 -> "qword"
+        128 -> "oword"
+        else -> throw Exception("Invalid stride (impl error)")
+    }
+
 fun Value.getWidth(): Int =
     when (this) {
         is Reg -> this.totalWidth

@@ -383,6 +383,7 @@ data class Reg(
                 if (dest.size > totalWidth)
                     throw Exception("Cannot move into destination with bigger size; use emitSignExtend() or emitZeroExtend() instead!")
 
+                // TODO: call recompute() on view afterwards
                 when (type) {
                     Type.MM -> {
                         if (dest.reg.type in arrayOf(Type.XMM, Type.XMM64)) {

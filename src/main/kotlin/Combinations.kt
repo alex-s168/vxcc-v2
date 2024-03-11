@@ -3,16 +3,6 @@ package vxcc
 import kotlin.math.ceil
 import kotlin.math.log2
 
-private fun Env.emitSize(stride: Long) =
-    when (stride) {
-        1L -> emit("byte")
-        2L -> emit("word")
-        4L -> emit("dword")
-        8L -> emit("qword")
-        16L -> emit("oword")
-        else -> throw Exception("Invalid stride (impl error)")
-    }
-
 data class ArrIndex(
     val arr: Either<Owner, Value>,
     val index: Either<Owner, Value>,
