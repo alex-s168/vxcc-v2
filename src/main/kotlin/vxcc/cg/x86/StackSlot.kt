@@ -1,4 +1,4 @@
-package vxcc.vxcc.x86
+package vxcc.cg.x86
 
 class StackSlot(
     val spOff: Long,

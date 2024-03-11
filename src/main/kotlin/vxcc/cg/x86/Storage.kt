@@ -1,4 +1,4 @@
-package vxcc.vxcc.x86
+package vxcc.cg.x86
 
 interface Storage: Value {
     /** try to convert to reg */

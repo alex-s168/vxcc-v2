@@ -1,4 +1,4 @@
-package vxcc.vxcc.x86
+package vxcc.cg.x86
 
 fun memCpy(env: X86Env, src: MemStorage, dest: MemStorage, len: Int) {
     TODO("memcpy()")

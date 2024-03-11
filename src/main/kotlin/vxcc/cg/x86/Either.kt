@@ -1,4 +1,4 @@
-package vxcc.vxcc.x86
+package vxcc.cg.x86
 
 data class Obj<T>(val v: T)
 

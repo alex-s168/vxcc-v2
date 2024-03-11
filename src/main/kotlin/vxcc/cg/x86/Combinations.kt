@@ -1,4 +1,4 @@
-package vxcc.vxcc.x86
+package vxcc.cg.x86
 
 import kotlin.math.ceil
 import kotlin.math.log2
