@@ -288,4 +288,149 @@ data class Env(
         // zmm wants align 64
         TODO()
     }
+
+    fun makeVecFloat(spFloat: Value, count: Int): Owner {
+        val reg = forceAllocReg(Owner.Flags(Use.VECTOR_ARITHM, count * 32, 32, Type.VxFLT))
+        val regReg = reg.storage.asReg()
+        if (target.avx && regReg.totalWidth in arrayOf(128, 256)) { // xmm and ymm
+            spFloat.useInGPReg(this) { valReg ->
+                require(valReg.totalWidth == 32)
+                emit("vbroadcastss ${regReg.name}, ${valReg.name}")
+            }
+        } else if ((target.avx512f || target.avx512vl) && regReg.totalWidth == 512) { // zmm
+            spFloat.useInGPReg(this) { valReg ->
+                require(valReg.totalWidth == 32)
+                emit("vbroadcastss ${regReg.name}, ${valReg.name}")
+            }
+        } else {
+            TODO("makeVecFloat if not certain CPU features")
+        }
+        return reg
+    }
+
+    fun makeVecDouble(dpFloat: Value, count: Int): Owner {
+        val reg = forceAllocReg(Owner.Flags(Use.VECTOR_ARITHM, count * 64, 64, Type.VxFLT))
+        val regReg = reg.storage.asReg()
+        if (target.avx && regReg.totalWidth == 256) { // ymm
+            dpFloat.useInGPReg(this) { valReg ->
+                require(valReg.totalWidth == 64)
+                emit("vbroadcastsd ${regReg.name}, ${valReg.name}")
+            }
+        } else if (target.avx512f && regReg.totalWidth == 512) { // zmm
+            dpFloat.useInGPReg(this) { valReg ->
+                require(valReg.totalWidth == 64)
+                emit("vbroadcastsd ${regReg.name}, ${valReg.name}")
+            }
+        } else {
+            TODO("makeVecDouble if not certain CPU features")
+        }
+        return reg
+    }
+
+    fun shuffleVecX32(vec: Value, vecBitWidth: Int, selection: IntArray, dest: Storage) {
+        var sel = 0
+        selection.reversed().forEach { pos ->
+            require(pos <= 0b11)
+            sel = sel or pos
+            sel = sel shl 2
+        }
+        when (vecBitWidth) {
+            64 -> TODO("mmx shuffle x32")
+            128 -> {
+                require(target.sse1)
+                require(selection.size == 4)
+                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
+                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
+                    require(dreg.totalWidth == 128) {
+                        throw Exception("Incompatible destination storage")
+                    }
+                    vec.useInGPReg(this) { vreg ->
+                        emit("shufps ${dreg.name}, ${vreg.name}, $sel")
+                    }
+                }
+            }
+            // TODO: NO WORK BECAUSE SHUFPS ONLY QUAD WORD!!!!
+            // USE PERMUTE INSTRUCTIONS (vpermt*, vperm*, ...) (vpermd probably)
+            256 -> {
+                require(target.avx)
+                require(selection.size == 8)
+                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
+                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
+                    require(dreg.totalWidth == 256) {
+                        throw Exception("Incompatible destination storage")
+                    }
+                    vec.useInGPReg(this) { vreg ->
+                        emit("vshufps ${dreg.name}, ${vreg.name}, $sel")
+                    }
+                }
+            }
+            512 -> {
+                require(target.avx512f)
+                require(selection.size == 16)
+                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
+                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
+                    require(dreg.totalWidth == 512) {
+                        throw Exception("Incompatible destination storage")
+                    }
+                    vec.useInGPReg(this) { vreg ->
+                        emit("vshufpds ${dreg.name}, ${vreg.name}, $sel")
+                    }
+                }
+            }
+            else -> throw Exception("wtf")
+        }
+    }
+
+    fun shuffleVecX64(vec: Value, vecBitWidth: Int, selection: IntArray, dest: Storage) {
+        var sel = 0
+        selection.reversed().forEach { pos ->
+            require(pos <= 0b11)
+            sel = sel or pos
+            sel = sel shl 2
+        }
+        when (vecBitWidth) {
+            64 -> throw Exception("64 bit vector do not support shuffle double!")
+            128 -> {
+                if (target.sse2) {
+                    require(selection.size == 2)
+                    TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
+                    dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
+                        require(dreg.totalWidth == 128) {
+                            throw Exception("Incompatible destination storage")
+                        }
+                        vec.useInGPReg(this) { vreg ->
+                            emit("shufpd ${dreg.name}, ${vreg.name}, $sel")
+                        }
+                    }
+                } else TODO("sse shuffle pd vec x32 no sse2")
+            }
+            256 -> {
+                require(target.avx)
+                require(selection.size == 4)
+                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
+                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
+                    require(dreg.totalWidth == 256) {
+                        throw Exception("Incompatible destination storage")
+                    }
+                    vec.useInGPReg(this) { vreg ->
+                        emit("vshufpd ${dreg.name}, ${vreg.name}, $sel")
+                    }
+                }
+            }
+            512 -> {
+                require(target.avx512f)
+                require(selection.size == 8)
+                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
+                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
+                    require(dreg.totalWidth == 512) {
+                        throw Exception("Incompatible destination storage")
+                    }
+                    vec.useInGPReg(this) { vreg ->
+                        emit("vshufpd ${dreg.name}, ${vreg.name}, $sel")
+                    }
+                }
+            }
+            else -> throw Exception("wtf")
+        }
+    }
 }
