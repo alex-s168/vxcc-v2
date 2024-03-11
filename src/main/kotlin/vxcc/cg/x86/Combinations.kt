@@ -1,4 +1,4 @@
-package vxcc
+package vxcc.vxcc.x86
 
 import kotlin.math.ceil
 import kotlin.math.log2
@@ -10,11 +10,11 @@ data class ArrIndex(
 ) {
     companion object {
         // both regs need to be GP or GP64EX !!!!!!!
-        private fun addrSelectorDirect(env: Env, arr: Reg, index: Reg, stride: Long) =
+        private fun addrSelectorDirect(env: X86Env, arr: Reg, index: Reg, stride: Long) =
             "[${arr.name} + ${index.name} * $stride]"
     }
 
-    internal fun emitOffset(env: Env, dest: Storage) {
+    internal fun emitOffset(env: X86Env, dest: Storage) {
         if (dest.getWidth() !in arrayOf(32, 64))
             throw Exception("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
 
@@ -49,7 +49,7 @@ data class ArrIndex(
         }
     }
 
-    internal fun emitIndex(env: Env, dest: Storage) {
+    internal fun emitIndex(env: X86Env, dest: Storage) {
         if (dest.getWidth() !in arrayOf(32, 64))
             throw Exception("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
 
@@ -61,7 +61,7 @@ data class Increment(
     val value: Value,
     val by: Long,
 ) {
-    internal fun emit(env: Env, dest: Storage) {
+    internal fun emit(env: X86Env, dest: Storage) {
         TODO("Increment:emit()")
     }
 }
@@ -70,7 +70,7 @@ data class Decrement(
     val value: Value,
     val by: Long,
 ) {
-    internal fun emit(env: Env, dest: Storage) {
+    internal fun emit(env: X86Env, dest: Storage) {
         TODO("Decrement:emit()")
     }
 }
@@ -89,7 +89,7 @@ data class Multiply(
     val value: Value,
     val by: Long,
 ) {
-    internal fun emit(env: Env, dest: Storage, destOwner: Owner?) {
+    internal fun emit(env: X86Env, dest: Storage, destOwner: Owner?) {
         if (value is Immediate) {
             env.immediate(value.value * by, dest.getWidth()).emitMov(env, dest)
             return

@@ -1,18 +1,18 @@
-package vxcc
+package vxcc.vxcc.x86
 
-fun memCpy(env: Env, src: MemStorage, dest: MemStorage, len: Int) {
+fun memCpy(env: X86Env, src: MemStorage, dest: MemStorage, len: Int) {
     TODO("memcpy()")
 }
 
-fun memSet(env: Env, dest: MemStorage, value: Byte, len: Int) {
-    if (env.optMode == Env.OptMode.SIZE) {
+fun memSet(env: X86Env, dest: MemStorage, value: Byte, len: Int) {
+    if (env.optMode == X86Env.OptMode.SIZE) {
 
     } else {
         if (env.target.sse1) {
             TODO()
         } else if (env.target.mmx) {
             // TODO: check align
-            val reg = env.forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, 64, 8, Type.VxUINT))
+            val reg = env.forceAllocReg(Owner.Flags(X86Env.Use.VECTOR_ARITHM, 64, 8, Type.VxUINT))
             if (value.toInt() == 0) {
                 reg.storage.emitZero(env)
             } else {
@@ -44,6 +44,6 @@ fun memSet(env: Env, dest: MemStorage, value: Byte, len: Int) {
     }
 }
 
-fun memSet(env: Env, dest: MemStorage, value: Value, len: Int) {
+fun memSet(env: X86Env, dest: MemStorage, value: Value, len: Int) {
     TODO("memset(Value)")
 }

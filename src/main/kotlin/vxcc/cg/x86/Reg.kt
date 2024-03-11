@@ -1,4 +1,4 @@
-package vxcc
+package vxcc.vxcc.x86
 
 import kotlin.math.pow
 
@@ -227,7 +227,7 @@ data class Reg(
             reg.views.add(this)
         }
 
-        val zextMap = mutableMapOf<Env, Owner>()
+        val zextMap = mutableMapOf<X86Env, Owner>()
 
         fun recompute() {
             zextMap.forEach { (k, v) ->
@@ -236,29 +236,29 @@ data class Reg(
             zextMap.clear()
         }
 
-        fun zextCompute(env: Env): Owner {
+        fun zextCompute(env: X86Env): Owner {
             val regSize = env.makeRegSize(size)
-            val temp = env.forceAllocReg(Owner.Flags(Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.Type.INT))
+            val temp = env.forceAllocReg(Owner.Flags(X86Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.vxcc.x86.Type.INT))
             reg.reducedAsReg(regSize).emitMov(env, temp.storage)
             temp.storage.emitStaticMask(env, temp.storage,  (2.0).pow(size).toLong() - 1)
-            temp.canBeDepromoted = Owner.Flags(Env.Use.STORE, regSize, null, vxcc.Type.INT)
+            temp.canBeDepromoted = Owner.Flags(X86Env.Use.STORE, regSize, null, vxcc.vxcc.x86.Type.INT)
             return temp
         }
 
-        override fun emitMov(env: Env, dest: Storage) {
+        override fun emitMov(env: X86Env, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitMov(env, dest)
         }
 
-        override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
+        override fun emitStaticMask(env: X86Env, dest: Storage, mask: Long) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitStaticMask(env, dest, mask)
         }
 
-        override fun reduced(env: Env, to: Int): Value =
+        override fun reduced(env: X86Env, to: Int): Value =
             reducedStorage(env, to)
 
-        override fun reducedStorage(env: Env, to: Int): Storage {
+        override fun reducedStorage(env: X86Env, to: Int): Storage {
             if (to > size)
                 throw Exception("reducedStorage() can not extend size!")
 
@@ -271,57 +271,57 @@ data class Reg(
                 View(reg, to)
         }
 
-        override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) {
+        override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitStaticShiftLeft(env, by, dest)
         }
 
-        override fun emitShiftLeft(env: Env, other: Value, dest: Storage) {
+        override fun emitShiftLeft(env: X86Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitShiftLeft(env, other, dest)
         }
 
-        override fun emitShiftRight(env: Env, other: Value, dest: Storage) {
+        override fun emitShiftRight(env: X86Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitShiftRight(env, other, dest)
         }
 
-        override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) {
+        override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitStaticShiftRight(env, by, dest)
         }
 
-        override fun emitMul(env: Env, other: Value, dest: Storage) {
+        override fun emitMul(env: X86Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitMul(env, other, dest)
         }
 
-        override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+        override fun emitSignedMul(env: X86Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitSignedMul(env, other, dest)
         }
 
-        override fun emitAdd(env: Env, other: Value, dest: Storage) {
+        override fun emitAdd(env: X86Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitAdd(env, other, dest)
         }
 
-        override fun emitZero(env: Env) {
+        override fun emitZero(env: X86Env) {
             reg.emitStaticMask(env, reg, (1L shl size).inv() and (1L shl reg.totalWidth))
             recompute()
         }
 
-        override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) {
+        override fun emitExclusiveOr(env: X86Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitExclusiveOr(env, other, dest)
         }
 
-        override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
+        override fun emitSignedMax(env: X86Env, other: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitSignedMax(env, other, dest)
         }
 
-        override fun emitMask(env: Env, mask: Value, dest: Storage) {
+        override fun emitMask(env: X86Env, mask: Value, dest: Storage) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
             zext.storage.emitMask(env, mask, dest)
         }
@@ -331,7 +331,7 @@ data class Reg(
      * Returns an emittable register that maps to the lower x bits of the reg.
      * x can not be any value.
      */
-    override fun reducedStorage(env: Env, to: Int): Storage =
+    override fun reducedStorage(env: X86Env, to: Int): Storage =
         try {
             reducedAsReg(to)
         } catch (_: Exception) {
@@ -346,7 +346,7 @@ data class Reg(
      * Move into destination.
      * Truncate if destination smaller
      */
-    override fun emitMov(env: Env, dest: Storage) {
+    override fun emitMov(env: X86Env, dest: Storage) {
         if (dest == this)
             return
 
@@ -402,7 +402,7 @@ data class Reg(
         }
     }
 
-    override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
+    override fun emitStaticMask(env: X86Env, dest: Storage, mask: Long) {
         if (!this.isGP())
             throw Exception("Can only static mask register values which are stored in GP or GP64EX registers")
 
@@ -411,13 +411,13 @@ data class Reg(
         }
     }
 
-    override fun reduced(env: Env, to: Int): Value =
+    override fun reduced(env: X86Env, to: Int): Value =
         reducedStorage(env, to)
 
     fun onDealloc(old: Owner) =
         views.forEach { it.recompute() }
 
-    private fun binaryOp0(env: Env, other: Value, dest: Storage, op: String) {
+    private fun binaryOp0(env: X86Env, other: Value, dest: Storage, op: String) {
         if (!this.isGP())
             throw Exception("Can only perform scalar scalar binary op with GP reg!")
 
@@ -439,22 +439,22 @@ data class Reg(
         }
     }
 
-    override fun emitAdd(env: Env, other: Value, dest: Storage) =
+    override fun emitAdd(env: X86Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "add")
 
-    override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
+    override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage) =
         emitShiftLeft(env, env.immediate(by, totalWidth), dest)
 
-    override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) =
+    override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage) =
         emitShiftRight(env, env.immediate(by, totalWidth), dest)
 
-    override fun emitMul(env: Env, other: Value, dest: Storage) =
+    override fun emitMul(env: X86Env, other: Value, dest: Storage) =
         if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax
             env.emit("mul ${other.name}")
         else
             emitSignedMul(env, other, dest)
 
-    override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+    override fun emitSignedMul(env: X86Env, other: Value, dest: Storage) {
         if (!this.isGP())
             throw Exception("Can only perform scalar scalar binary op with GP reg!")
 
@@ -475,13 +475,13 @@ data class Reg(
         }
     }
 
-    override fun emitShiftLeft(env: Env, other: Value, dest: Storage) =
+    override fun emitShiftLeft(env: X86Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "shl")
 
-    override fun emitShiftRight(env: Env, other: Value, dest: Storage) =
+    override fun emitShiftRight(env: X86Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "shr")
 
-    override fun emitZero(env: Env) =
+    override fun emitZero(env: X86Env) =
         when (type) {
             Type.GP,
             Type.GP64EX ->
@@ -496,13 +496,13 @@ data class Reg(
             Type.XMM,
             Type.XMM64,
             Type.ZMMEX ->
-                if (env.optMode == Env.OptMode.SIZE)
+                if (env.optMode == X86Env.OptMode.SIZE)
                     env.emit("xorps $name, $name")
                 else
                     env.emit("pxor $name, $name")
         }
 
-    private fun emitCwdCdqCqo(env: Env) {
+    private fun emitCwdCdqCqo(env: X86Env) {
         assert(this.type == Type.GP && this.localId == 0)
         when (this.totalWidth) {
             8 -> throw Exception("cwd/cdq/cqo not available for 8 bit regs")
@@ -513,13 +513,13 @@ data class Reg(
         }
     }
 
-    override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
+    override fun emitSignedMax(env: X86Env, other: Value, dest: Storage) {
         when (other) {
             is Immediate -> {
                 if (other.value == 0L && dest is Reg && dest.type == Type.GP && dest.localId == 0) {
                     val edx = env.allocReg(
                         env.getRegByIndex(Index(Type.GP, 2)),
-                        Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.Type.UINT)
+                        Owner.Flags(X86Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.vxcc.x86.Type.UINT)
                     )
                     if (edx == null) {
                         useInGPReg(env) {
@@ -559,9 +559,9 @@ data class Reg(
         }
     }
 
-    override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
+    override fun emitExclusiveOr(env: X86Env, other: Value, dest: Storage) =
         binaryOp0(env, other, dest, "xor")
 
-    override fun emitMask(env: Env, mask: Value, dest: Storage) =
+    override fun emitMask(env: X86Env, mask: Value, dest: Storage) =
         binaryOp0(env, mask, dest, "and")
 }

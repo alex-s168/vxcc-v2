@@ -1,30 +1,30 @@
-package vxcc
+package vxcc.vxcc.x86
 
 class StackSlot(
     val spOff: Long,
     val width: Int,
 ): MemStorage {
-    private fun spRegName(env: Env) =
+    private fun spRegName(env: X86Env) =
         if (env.target.amd64_v1) "rsp"
         else "esp"
 
-    private fun spIndexStr(env: Env) =
+    private fun spIndexStr(env: X86Env) =
         if (spOff < 0)
             "${spRegName(env)} - $spOff"
         else
             "${spRegName(env)} + $spOff"
 
-    override fun reducedStorage(env: Env, to: Int): Storage =
+    override fun reducedStorage(env: X86Env, to: Int): Storage =
         StackSlot(spOff, to)
 
     override fun offsetBytes(offset: Int): MemStorage =
         StackSlot(spOff + offset, width)
 
-    override fun emitZero(env: Env) {
+    override fun emitZero(env: X86Env) {
         memSet(env, this, 0, width)
     }
 
-    override fun emitMov(env: Env, dest: Storage) {
+    override fun emitMov(env: X86Env, dest: Storage) {
         when (dest) {
             is Reg -> {
                 if (dest.totalWidth != width)
@@ -93,50 +93,50 @@ class StackSlot(
         }
     }
 
-    override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
+    override fun emitStaticMask(env: X86Env, dest: Storage, mask: Long) {
         TODO("Not yet implemented")
     }
 
-    override fun emitMask(env: Env, mask: Value, dest: Storage) {
+    override fun emitMask(env: X86Env, mask: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun reduced(env: Env, to: Int): Value =
+    override fun reduced(env: X86Env, to: Int): Value =
         StackSlot(spOff, width)
 
-    override fun emitAdd(env: Env, other: Value, dest: Storage) {
+    override fun emitAdd(env: X86Env, other: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitMul(env: Env, other: Value, dest: Storage) {
+    override fun emitMul(env: X86Env, other: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+    override fun emitSignedMul(env: X86Env, other: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitShiftLeft(env: Env, other: Value, dest: Storage) {
+    override fun emitShiftLeft(env: X86Env, other: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) {
+    override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitShiftRight(env: Env, other: Value, dest: Storage) {
+    override fun emitShiftRight(env: X86Env, other: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) {
+    override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
+    override fun emitSignedMax(env: X86Env, other: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 
-    override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) {
+    override fun emitExclusiveOr(env: X86Env, other: Value, dest: Storage) {
         TODO("Not yet implemented")
     }
 }

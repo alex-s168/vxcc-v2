@@ -1,4 +1,4 @@
-package vxcc
+package vxcc.vxcc.x86
 
 fun main() {
     val target = Target().apply {
@@ -6,12 +6,12 @@ fun main() {
         mmx = true
     }
 
-    val env = Env(target)
+    val env = X86Env(target)
     env.verboseAsm = true
 
-    val a = env.alloc(Owner.Flags(Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
-    val b = env.alloc(Owner.Flags(Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
-    val o = env.alloc(Owner.Flags(Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
+    val a = env.alloc(Owner.Flags(X86Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
+    val b = env.alloc(Owner.Flags(X86Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
+    val o = env.alloc(Owner.Flags(X86Env.Use.SCALAR_AIRTHM, 64, null, Type.INT))
 
     env.immediate(5, 64).emitMov(env, a.storage)
     env.immediate(20, 64).emitMov(env, b.storage)

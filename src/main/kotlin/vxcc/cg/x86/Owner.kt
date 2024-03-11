@@ -1,4 +1,4 @@
-package vxcc
+package vxcc.vxcc.x86
 
 data class Owner(
     var storage: Storage,
@@ -10,7 +10,7 @@ data class Owner(
     var shouldBeDestroyed: Boolean = false,
 ) {
     data class Flags(
-        val use: Env.Use,
+        val use: X86Env.Use,
         val totalWidth: Int,
         val vecElementWidth: Int?,
         val type: Type,
@@ -18,6 +18,6 @@ data class Owner(
 
     companion object {
         fun temp(): Owner =
-            Owner(Storage.none(), Flags(Env.Use.STORE, 0, null, Type.INT))
+            Owner(Storage.none(), Flags(X86Env.Use.STORE, 0, null, Type.INT))
     }
 }

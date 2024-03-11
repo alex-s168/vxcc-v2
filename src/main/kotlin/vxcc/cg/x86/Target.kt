@@ -1,8 +1,9 @@
-package vxcc
+package vxcc.vxcc.x86
 
 class Target {
     var fpu = false
     var mmx = false
+    /** also amd64 has this set to true!! */
     var is32 = true // TODO: add proper support for 16 bit
     var sse1 = false
         set(value) {

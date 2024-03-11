@@ -1,4 +1,4 @@
-package vxcc
+package vxcc.vxcc.x86
 
 fun sizeStr(width: Int) =
     when (width) {
@@ -22,11 +22,11 @@ fun Value.getWidth(): Int =
 /**
  * SHOULD NOT BE USED IN MOST CASES!
  */
-fun Value.useInGPReg(env: Env, block: (Reg) -> Unit) =
+fun Value.useInGPReg(env: X86Env, block: (Reg) -> Unit) =
     if (this is Reg) {
         block(this)
     } else {
-        val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT))
+        val reg = env.forceAllocReg(Owner.Flags(X86Env.Use.STORE, this.getWidth(), null, Type.INT))
         emitMov(env, reg.storage)
         block(reg.storage.asReg())
         env.dealloc(reg)
@@ -35,7 +35,7 @@ fun Value.useInGPReg(env: Env, block: (Reg) -> Unit) =
 /**
  * If it is not stored in a reg, moves it into a reg
  */
-fun Owner.moveIntoReg(env: Env) {
+fun Owner.moveIntoReg(env: X86Env) {
     if (this.storage is Reg)
         return
 
@@ -52,12 +52,12 @@ fun Owner.moveIntoReg(env: Env) {
  * then moves the content of the gp reg into the storage.
  * ((if the storage is not a reg itself))
  */
-fun Storage.useInGPRegWriteBack(env: Env, copyInBegin: Boolean = true, block: (Reg) -> Unit) =
+fun Storage.useInGPRegWriteBack(env: X86Env, copyInBegin: Boolean = true, block: (Reg) -> Unit) =
     if (this is Reg) {
         block(this)
     }
     else {
-        val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT))
+        val reg = env.forceAllocReg(Owner.Flags(X86Env.Use.STORE, this.getWidth(), null, Type.INT))
         if (copyInBegin)
             this.emitMov(env, reg.storage)
         block(reg.storage.asReg())
@@ -69,7 +69,7 @@ fun Storage.useInGPRegWriteBack(env: Env, copyInBegin: Boolean = true, block: (R
  * If either is owner, moves it permanently into a reg (if it is not already)
  * if either is value, moves it into a temp reg (if it is not already)
  */
-fun Either<Owner, Value>.useInGPReg(env: Env, block: (Reg) -> Unit) =
+fun Either<Owner, Value>.useInGPReg(env: X86Env, block: (Reg) -> Unit) =
     this
         .mapA {
             it.moveIntoReg(env)
