@@ -16,7 +16,7 @@ fun memSet(env: Env, dest: MemStorage, value: Byte, len: Int) {
             if (value.toInt() == 0) {
                 reg.storage.emitZero(env)
             } else {
-                val valueLoc = env.staticAlloc(len, ByteArray(len) { value })
+                val valueLoc = env.staticAlloc(8, ByteArray(8) { value })
                 valueLoc.emitMov(env, reg.storage)
             }
             val first = len / 8
@@ -26,8 +26,12 @@ fun memSet(env: Env, dest: MemStorage, value: Byte, len: Int) {
             }
             env.dealloc(reg)
             var left = len % 8
+            val valuex4 = value.toLong() or
+                    (value.toLong() shl 8) or
+                    (value.toLong() shl 16) or
+                    (value.toLong() shl 24)
             for (i in 0..left / 4) {
-                env.immediate(value.toLong()).emitMov(env, dest.offsetBytes(first + i * 4).reducedStorage(env, 4))
+                env.immediate(valuex4, 32).emitMov(env, dest.offsetBytes(first + i * 4).reducedStorage(env, 32))
             }
             left %= 4
             if (left > 0) {

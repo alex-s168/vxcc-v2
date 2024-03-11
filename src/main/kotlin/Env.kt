@@ -176,9 +176,8 @@ data class Env(
         if (reg.used) null
         else Reg
             .from(reg.index, flags.totalWidth)
+            .reducedStorage(this, flags.totalWidth)
             .let { r ->
-                if (verboseAsm)
-                    println("; alloc reg ${r.name}")
                 val o = Owner(r, flags)
                 registers[reg.index] = Obj(o)
                 o
@@ -187,8 +186,7 @@ data class Env(
     private fun forceAllocReg(reg: BestRegResult, flags: Owner.Flags): Owner {
         if (!reg.used) {
             val r = Reg.from(reg.index, flags.totalWidth)
-            if (verboseAsm)
-                println("; alloc reg ${r.name}")
+                .reducedStorage(this, flags.totalWidth)
             val o = Owner(r, flags)
             registers[reg.index] = Obj(o)
             return o
@@ -200,8 +198,7 @@ data class Env(
         val new = owner.copy()
         owner.storage = temp.storage
         registers[reg.index] = Obj(new)
-        if (verboseAsm)
-            println("; alloc reg ${new.storage.asReg().name}")
+        new.storage = new.storage.reducedStorage(this, flags.totalWidth)
         return new
     }
 
@@ -254,8 +251,6 @@ data class Env(
             is Reg -> {
                 val reg = owner.storage.asReg()
                 val id = reg.asIndex()
-                if (verboseAsm)
-                    println("; dealloc reg ${reg.name}")
                 reg.onDealloc(owner)
                 if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") }.v == null)
                     throw Exception("Attempting to deallocate register twice! Double allocated?")
@@ -277,15 +272,15 @@ data class Env(
         else if (size <= 512) 512
         else size
 
-    fun immediate(value: Long): Immediate =
-        Immediate(value)
+    fun immediate(value: Long, width: Int): Immediate =
+        Immediate(value, width)
 
-    fun immediate(value: Double): Immediate =
-        immediate(value.toRawBits())
+    fun immediate(value: Double, width: Int): Immediate =
+        immediate(value.toRawBits(), width)
 
-    fun staticAlloc(width: Int, init: ByteArray?): MemStorage {
-        val arr = init ?: ByteArray(width)
-        require(arr.size == width)
+    fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage {
+        val arr = init ?: ByteArray(widthBytes)
+        require(arr.size == widthBytes)
         TODO()
     }
 }

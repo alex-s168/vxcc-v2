@@ -2,6 +2,7 @@ package vxcc
 
 import kotlin.math.pow
 
+// TODO: check destination size when operating
 // TODO: the idiot designers of amd64 decided that changing e*x zeros out the top of r*x...
 
 data class Reg(
@@ -441,10 +442,10 @@ data class Reg(
         binaryOp0(env, other, dest, "add")
 
     override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
-        emitShiftLeft(env, env.immediate(by), dest)
+        emitShiftLeft(env, env.immediate(by, totalWidth), dest)
 
     override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) =
-        emitShiftRight(env, env.immediate(by), dest)
+        emitShiftRight(env, env.immediate(by, totalWidth), dest)
 
     override fun emitMul(env: Env, other: Value, dest: Storage) =
         if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax

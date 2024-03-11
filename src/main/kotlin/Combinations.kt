@@ -101,7 +101,7 @@ data class Multiply(
 ) {
     internal fun emit(env: Env, dest: Storage, destOwner: Owner?) {
         if (value is Immediate) {
-            Immediate(value.value * by).emitMov(env, dest)
+            env.immediate(value.value * by, dest.getWidth()).emitMov(env, dest)
             return
         }
 
@@ -154,7 +154,7 @@ data class Multiply(
             }
         }
         else {
-            value.emitMul(env, env.immediate(by), dest)
+            value.emitMul(env, env.immediate(by, dest.getWidth()), dest)
         }
 
         // TODO: if speed opt

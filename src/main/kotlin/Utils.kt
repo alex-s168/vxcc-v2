@@ -4,7 +4,7 @@ fun Value.getWidth(): Int =
     when (this) {
         is Reg -> this.totalWidth
         is Reg.View -> this.size
-        is Immediate -> TODO("width of imm")
+        is Immediate -> this.width
         is StackSlot -> this.width
         else -> TODO("getWidth() for type")
     }
