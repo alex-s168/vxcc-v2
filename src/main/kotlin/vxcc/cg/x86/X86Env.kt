@@ -1,15 +1,17 @@
-package vxcc
+package vxcc.cg.x86
 
-data class Env(
+import vxcc.cg.*
+
+data class X86Env(
     val target: Target
-) {
+): Env<X86Env> {
     fun emit(a: String) =
         println(a)
 
     fun emitBytes(bytes: ByteArray) =
         emit("db ${bytes.joinToString { "0x${it.toString(16)}" }}")
 
-    val registers = mutableMapOf<Reg.Index, Obj<Owner?>>()
+    val registers = mutableMapOf<Reg.Index, Obj<Owner<X86Env>?>>()
 
     init {
         for (i in 0..5)
@@ -39,24 +41,27 @@ data class Env(
         }
     }
 
-    enum class OptMode {
-        SPEED,
-        SIZE,
-    }
-
-    var verboseAsm = false
     var regAlloc = true
-    var optMode = OptMode.SPEED
+    override var optMode = Env.OptMode.SPEED
 
-    val optimal = object {
+    override val optimal = object: Optimal<X86Env> {
         /** overall fastest boolean type */
-        val boolFast = Owner.Flags(Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.UINT)
+        override val boolFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.UINT)
 
         /** overall smallest boolean type */
-        val boolSmall = boolFast
+        override val boolSmall = boolFast
 
         /** fastest boolean type if speed opt, otherwise smallest boolean type */
-        val bool = if (optMode == OptMode.SPEED) boolFast else boolSmall
+        override val bool = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+
+        /** overall fastest int type */
+        override val intFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.UINT)
+
+        /** overall smallest int type */
+        override val intSmall = intFast
+
+        /** fastest int type if speed opt, otherwise smallest int type */
+        override val int = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
     }
 
     internal var fpuUse: Boolean = false
@@ -67,12 +72,6 @@ data class Env(
             if (!value)
                 emit("emms")
         }
-
-    enum class Use {
-        STORE,
-        SCALAR_AIRTHM,
-        VECTOR_ARITHM,
-    }
 
     data class BestRegResult(
         val index: Reg.Index,
@@ -92,7 +91,7 @@ data class Env(
         if (owner.canBeDepromoted != null) {
             registers[index] = Obj(Owner.temp()) // we don't want alloc() to return the same reg
             val new = alloc(owner.flags)
-            owner.storage.emitMov(this, new.storage)
+            owner.storage!!.flatten().emitMov(this, new.storage!!.flatten())
             dealloc(owner)
             owner.storage = new.storage
             registers[index] = Obj(null)
@@ -106,7 +105,7 @@ data class Env(
         tryClaim(index) ?: BestRegResult(index, true)
 
     private fun getBestAvailableReg(flags: Owner.Flags): BestRegResult? {
-        val gp = flags.use in arrayOf(Use.SCALAR_AIRTHM, Use.STORE) && !flags.type.float && !flags.type.vector
+        val gp = flags.use in arrayOf(Env.Use.SCALAR_AIRTHM, Env.Use.STORE) && !flags.type.float && !flags.type.vector
 
         var found: Reg.Index? = null
 
@@ -131,9 +130,9 @@ data class Env(
             }
         }
 
-        if (flags.use in arrayOf(Use.VECTOR_ARITHM, Use.STORE)) {
+        if (flags.use in arrayOf(Env.Use.VECTOR_ARITHM, Env.Use.STORE)) {
             if (target.mmx && flags.totalWidth <= 64 &&
-                (flags.use == Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32)) &&
+                (flags.use == Env.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32)) &&
                 !fpuUse && flags.type.int) {
                 for (i in 0..7) {
                     found = Reg.Index(Reg.Type.MM, i)
@@ -145,7 +144,7 @@ data class Env(
 
             if (target.sse1 &&
                 (flags.totalWidth <= 128 || flags.totalWidth <= 256 && target.avx || flags.totalWidth <= 512 && target.avx512f) &&
-                (flags.use == Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32, 64)) &&
+                (flags.use == Env.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32, 64)) &&
                 (flags.type.float || flags.type.int && target.sse2)) {
                 for (i in 0..7) {
                     found = Reg.Index(Reg.Type.XMM, i)
@@ -172,71 +171,55 @@ data class Env(
         return found?.let { BestRegResult(it, true) }
     }
 
-    fun allocReg(reg: BestRegResult, flags: Owner.Flags): Owner? =
+    fun allocReg(reg: BestRegResult, flags: Owner.Flags): Owner<X86Env>? =
         if (reg.used) null
-        else Reg
-            .from(reg.index, flags.totalWidth)
+        else Reg.from(reg.index, flags.totalWidth)
             .reducedStorage(this, flags.totalWidth)
             .let { r ->
-                val o = Owner(r, flags)
+                val o = Owner(Either.ofB(r), flags)
                 registers[reg.index] = Obj(o)
                 o
             }
 
-    private fun forceAllocReg(reg: BestRegResult, flags: Owner.Flags): Owner {
+    private fun forceAllocReg(reg: BestRegResult, flags: Owner.Flags): Owner<X86Env> {
         if (!reg.used) {
             val r = Reg.from(reg.index, flags.totalWidth)
                 .reducedStorage(this, flags.totalWidth)
-            val o = Owner(r, flags)
+            val o = Owner(Either.ofB(r), flags)
             registers[reg.index] = Obj(o)
             return o
         }
 
         val owner = registers[reg.index]!!.v!!
         val temp = alloc(owner.flags)
-        owner.storage.emitMov(this, temp.storage)
+        owner.storage!!.flatten().emitMov(this, temp.storage!!.flatten())
         val new = owner.copy()
         owner.storage = temp.storage
         registers[reg.index] = Obj(new)
-        new.storage = new.storage.reducedStorage(this, flags.totalWidth)
+        new.storage = Either.ofB(new.storage!!.flatten().reducedStorage(this, flags.totalWidth))
         return new
     }
 
-    fun forceAllocReg(flags: Owner.Flags, reg: Reg.Index): Owner =
+    fun forceAllocReg(flags: Owner.Flags, reg: Reg.Index): Owner<X86Env> =
         forceAllocReg(getRegByIndex(reg), flags)
 
-    fun forceAllocReg(flags: Owner.Flags, name: String): Owner =
+    override fun forceAllocReg(flags: Owner.Flags, name: String): Owner<X86Env> =
         forceAllocReg(flags, Reg.fromName(name).asIndex())
 
-    fun forceAllocRegRecommend(flags: Owner.Flags, recommend: Reg.Index): Owner =
+    fun forceAllocRegRecommend(flags: Owner.Flags, recommend: Reg.Index): Owner<X86Env> =
         allocReg(getRegByIndex(recommend), flags) ?: forceAllocReg(flags)
 
-    fun forceAllocRegRecommend(flags: Owner.Flags, recommend: String): Owner =
+    fun forceAllocRegRecommend(flags: Owner.Flags, recommend: String): Owner<X86Env> =
         forceAllocRegRecommend(flags, Reg.fromName(recommend).asIndex())
 
-    fun allocReg(flags: Owner.Flags): Owner? =
+    fun allocReg(flags: Owner.Flags): Owner<X86Env>? =
         getBestAvailableReg(flags)?.let { allocReg(it, flags) }
 
-    fun forceAllocReg(flags: Owner.Flags): Owner =
+    fun forceAllocReg(flags: Owner.Flags): Owner<X86Env> =
         getBestAvailableReg(flags)?.let { forceAllocReg(it, flags) }
             ?: throw Exception("No compatible register for $flags")
 
-    private val stackAlloc = object {
-        inner class Elem(
-            val deallocateable: Boolean,
-            val byteSize: Int,
-        )
-
-        inner class Frame(
-            val elements: MutableList<Elem>,
-            var nextArr: Long
-        )
-
-        val frames = mutableListOf<Frame>()
-        val sp = 0L
-    }
-
-    fun alloc(flags: Owner.Flags): Owner {
+    override fun alloc(flags: Owner.Flags): Owner<X86Env> {
         if (regAlloc) {
             val reg = allocReg(flags)
             if (reg != null)
@@ -246,10 +229,10 @@ data class Env(
         TODO("implement stack alloc and static alloc")
     }
 
-    fun dealloc(owner: Owner) =
-        when (owner.storage) {
+    override fun dealloc(owner: Owner<X86Env>) =
+        when (val ownerSto = owner.storage!!.flatten()) {
             is Reg -> {
-                val reg = owner.storage.asReg()
+                val reg = ownerSto.asReg()
                 val id = reg.asIndex()
                 reg.onDealloc(owner)
                 if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") }.v == null)
@@ -262,7 +245,7 @@ data class Env(
             else -> TODO("dealloc")
         }
 
-    fun makeRegSize(size: Int): Int =
+    override fun makeRegSize(size: Int): Int =
         if (size <= 8) 8
         else if (size <= 16) 16
         else if (size <= 32) 32
@@ -272,15 +255,18 @@ data class Env(
         else if (size <= 512) 512
         else size
 
-    fun immediate(value: Long, width: Int): Immediate =
+    override fun immediate(value: Long, width: Int): Immediate =
         Immediate(value, width)
 
-    fun immediate(value: Double, width: Int): Immediate =
-        immediate(value.toRawBits(), width)
+    override fun immediate(value: Double): Immediate =
+        immediate(value.toRawBits(), 64)
+
+    override fun immediate(value: Float): Immediate =
+        immediate(value.toRawBits().toLong(), 32)
 
     // TODO: 16 byte align stack alloc vals (and make sure callconv asserts that sp aligned 16, otherwise align 16)
 
-    fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage {
+    override fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
         // if speed then align 16 else align idk
@@ -289,9 +275,9 @@ data class Env(
         TODO()
     }
 
-    fun makeVecFloat(spFloat: Value, count: Int): Owner {
-        val reg = forceAllocReg(Owner.Flags(Use.VECTOR_ARITHM, count * 32, 32, Type.VxFLT))
-        val regReg = reg.storage.asReg()
+    override fun makeVecFloat(spFloat: Value<X86Env>, count: Int): Owner<X86Env> {
+        val reg = forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, count * 32, 32, Type.VxFLT))
+        val regReg = reg.storage!!.flatten().asReg()
         if (target.avx && regReg.totalWidth in arrayOf(128, 256)) { // xmm and ymm
             spFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 32)
@@ -308,9 +294,9 @@ data class Env(
         return reg
     }
 
-    fun makeVecDouble(dpFloat: Value, count: Int): Owner {
-        val reg = forceAllocReg(Owner.Flags(Use.VECTOR_ARITHM, count * 64, 64, Type.VxFLT))
-        val regReg = reg.storage.asReg()
+    override fun makeVecDouble(dpFloat: Value<X86Env>, count: Int): Owner<X86Env> {
+        val reg = forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, count * 64, 64, Type.VxFLT))
+        val regReg = reg.storage!!.flatten().asReg()
         if (target.avx && regReg.totalWidth == 256) { // ymm
             dpFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 64)
@@ -327,7 +313,7 @@ data class Env(
         return reg
     }
 
-    fun shuffleVecX32(vec: Value, vecBitWidth: Int, selection: IntArray, dest: Storage) {
+    override fun shuffleVecX32(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
         var sel = 0
         selection.reversed().forEach { pos ->
             require(pos <= 0b11)
@@ -381,7 +367,7 @@ data class Env(
         }
     }
 
-    fun shuffleVecX64(vec: Value, vecBitWidth: Int, selection: IntArray, dest: Storage) {
+    override fun shuffleVecX64(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
         var sel = 0
         selection.reversed().forEach { pos ->
             require(pos <= 0b11)
@@ -432,5 +418,13 @@ data class Env(
             }
             else -> throw Exception("wtf")
         }
+    }
+
+    override fun shuffleVecX16(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun shuffleVecX8(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
+        TODO("Not yet implemented")
     }
 }

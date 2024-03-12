@@ -1,5 +1,6 @@
-package vxcc
+package vxcc.cg.x86
 
+import vxcc.cg.*
 import kotlin.math.pow
 
 // TODO: check destination size when operating
@@ -10,7 +11,7 @@ data class Reg(
     val totalWidth: Int,
     val type: Type,
     val localId: Int,
-): Storage {
+): AbstractX86Value(), Storage<X86Env> {
     fun isGP() =
         this.type == Type.GP || this.type == Type.GP64EX
 
@@ -222,12 +223,12 @@ data class Reg(
     data class View internal constructor(
         val reg: Reg,
         val size: Int,
-    ): Storage {
+    ): AbstractX86Value(), Storage<X86Env> {
         init {
             reg.views.add(this)
         }
 
-        val zextMap = mutableMapOf<Env, Owner>()
+        val zextMap = mutableMapOf<X86Env, Owner<X86Env>>()
 
         fun recompute() {
             zextMap.forEach { (k, v) ->
@@ -236,29 +237,30 @@ data class Reg(
             zextMap.clear()
         }
 
-        fun zextCompute(env: Env): Owner {
+        fun zextCompute(env: X86Env): Owner<X86Env> {
             val regSize = env.makeRegSize(size)
-            val temp = env.forceAllocReg(Owner.Flags(Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.Type.INT))
-            reg.reducedAsReg(regSize).emitMov(env, temp.storage)
-            temp.storage.emitStaticMask(env, temp.storage,  (2.0).pow(size).toLong() - 1)
-            temp.canBeDepromoted = Owner.Flags(Env.Use.STORE, regSize, null, vxcc.Type.INT)
+            val temp = env.forceAllocReg(Owner.Flags(Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.cg.Type.INT))
+            val tempSto = temp.storage!!.flatten()
+            reg.reducedAsReg(regSize).emitMov(env, tempSto)
+            tempSto.emitStaticMask(env, (2.0).pow(size).toLong() - 1, tempSto)
+            temp.canBeDepromoted = Owner.Flags(Env.Use.STORE, regSize, null, vxcc.cg.Type.INT)
             return temp
         }
 
-        override fun emitMov(env: Env, dest: Storage) {
+        override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitMov(env, dest)
+            zext.storage!!.flatten().emitMov(env, dest)
         }
 
-        override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
+        override fun emitStaticMask(env: X86Env, mask: Long, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitStaticMask(env, dest, mask)
+            zext.storage!!.flatten().emitStaticMask(env, mask, dest)
         }
 
-        override fun reduced(env: Env, to: Int): Value =
+        override fun reduced(env: X86Env, to: Int): Value<X86Env> =
             reducedStorage(env, to)
 
-        override fun reducedStorage(env: Env, to: Int): Storage {
+        override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> {
             if (to > size)
                 throw Exception("reducedStorage() can not extend size!")
 
@@ -271,59 +273,59 @@ data class Reg(
                 View(reg, to)
         }
 
-        override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) {
+        override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitStaticShiftLeft(env, by, dest)
+            zext.storage!!.flatten().emitStaticShiftLeft(env, by, dest)
         }
 
-        override fun emitShiftLeft(env: Env, other: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitShiftLeft(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitShiftLeft(env, other, dest)
+            zext.storage!!.flatten().emitShiftLeft(env, other, dest)
         }
 
-        override fun emitShiftRight(env: Env, other: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitShiftRight(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitShiftRight(env, other, dest)
+            zext.storage!!.flatten().emitShiftRight(env, other, dest)
         }
 
-        override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) {
+        override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitStaticShiftRight(env, by, dest)
+            zext.storage!!.flatten().emitStaticShiftRight(env, by, dest)
         }
 
-        override fun emitMul(env: Env, other: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitMul(env, other, dest)
+            zext.storage!!.flatten().emitMul(env, other, dest)
         }
 
-        override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitSignedMul(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitSignedMul(env, other, dest)
+            zext.storage!!.flatten().emitSignedMul(env, other, dest)
         }
 
-        override fun emitAdd(env: Env, other: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitAdd(env, other, dest)
+            zext.storage!!.flatten().emitAdd(env, other, dest)
         }
 
-        override fun emitZero(env: Env) {
-            reg.emitStaticMask(env, reg, (1L shl size).inv() and (1L shl reg.totalWidth))
+        override fun emitZero(env: X86Env) {
+            reg.emitStaticMask(env, (1L shl size).inv() and (1L shl reg.totalWidth), reg)
             recompute()
         }
 
-        override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitExclusiveOr(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitExclusiveOr(env, other, dest)
+            zext.storage!!.flatten().emitExclusiveOr(env, other, dest)
         }
 
-        override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitSignedMax(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitSignedMax(env, other, dest)
+            zext.storage!!.flatten().emitSignedMax(env, other, dest)
         }
 
-        override fun emitMask(env: Env, mask: Value, dest: Storage) {
+        override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage.emitMask(env, mask, dest)
+            zext.storage!!.flatten().emitMask(env, mask, dest)
         }
     }
 
@@ -331,7 +333,7 @@ data class Reg(
      * Returns an emittable register that maps to the lower x bits of the reg.
      * x can not be any value.
      */
-    override fun reducedStorage(env: Env, to: Int): Storage =
+    override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> =
         try {
             reducedAsReg(to)
         } catch (_: Exception) {
@@ -346,7 +348,7 @@ data class Reg(
      * Move into destination.
      * Truncate if destination smaller
      */
-    override fun emitMov(env: Env, dest: Storage) {
+    override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
         if (dest == this)
             return
 
@@ -402,7 +404,7 @@ data class Reg(
         }
     }
 
-    override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
+    override fun emitStaticMask(env: X86Env, mask: Long, dest: Storage<X86Env>) {
         if (!this.isGP())
             throw Exception("Can only static mask register values which are stored in GP or GP64EX registers")
 
@@ -411,13 +413,13 @@ data class Reg(
         }
     }
 
-    override fun reduced(env: Env, to: Int): Value =
+    override fun reduced(env: X86Env, to: Int): Value<X86Env> =
         reducedStorage(env, to)
 
-    fun onDealloc(old: Owner) =
+    fun onDealloc(old: Owner<X86Env>) =
         views.forEach { it.recompute() }
 
-    private fun binaryOp0(env: Env, other: Value, dest: Storage, op: String) {
+    private fun binaryOp0(env: X86Env, other: Value<X86Env>, dest: Storage<X86Env>, op: String) {
         if (!this.isGP())
             throw Exception("Can only perform scalar scalar binary op with GP reg!")
 
@@ -439,22 +441,22 @@ data class Reg(
         }
     }
 
-    override fun emitAdd(env: Env, other: Value, dest: Storage) =
+    override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) =
         binaryOp0(env, other, dest, "add")
 
-    override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) =
+    override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage<X86Env>) =
         emitShiftLeft(env, env.immediate(by, totalWidth), dest)
 
-    override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) =
+    override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage<X86Env>) =
         emitShiftRight(env, env.immediate(by, totalWidth), dest)
 
-    override fun emitMul(env: Env, other: Value, dest: Storage) =
+    override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) =
         if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax
             env.emit("mul ${other.name}")
         else
             emitSignedMul(env, other, dest)
 
-    override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitSignedMul(env: X86Env, other: V, dest: Storage<X86Env>) {
         if (!this.isGP())
             throw Exception("Can only perform scalar scalar binary op with GP reg!")
 
@@ -475,13 +477,13 @@ data class Reg(
         }
     }
 
-    override fun emitShiftLeft(env: Env, other: Value, dest: Storage) =
+    override fun <V : Value<X86Env>> emitShiftLeft(env: X86Env, other: V, dest: Storage<X86Env>) =
         binaryOp0(env, other, dest, "shl")
 
-    override fun emitShiftRight(env: Env, other: Value, dest: Storage) =
+    override fun <V : Value<X86Env>> emitShiftRight(env: X86Env, other: V, dest: Storage<X86Env>) =
         binaryOp0(env, other, dest, "shr")
 
-    override fun emitZero(env: Env) =
+    override fun emitZero(env: X86Env) =
         when (type) {
             Type.GP,
             Type.GP64EX ->
@@ -502,7 +504,7 @@ data class Reg(
                     env.emit("pxor $name, $name")
         }
 
-    private fun emitCwdCdqCqo(env: Env) {
+    private fun emitCwdCdqCqo(env: X86Env) {
         assert(this.type == Type.GP && this.localId == 0)
         when (this.totalWidth) {
             8 -> throw Exception("cwd/cdq/cqo not available for 8 bit regs")
@@ -513,13 +515,13 @@ data class Reg(
         }
     }
 
-    override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitSignedMax(env: X86Env, other: V, dest: Storage<X86Env>) {
         when (other) {
             is Immediate -> {
                 if (other.value == 0L && dest is Reg && dest.type == Type.GP && dest.localId == 0) {
                     val edx = env.allocReg(
                         env.getRegByIndex(Index(Type.GP, 2)),
-                        Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.Type.UINT)
+                        Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.cg.Type.UINT)
                     )
                     if (edx == null) {
                         useInGPReg(env) {
@@ -532,8 +534,9 @@ data class Reg(
                         // and edx, eax
                         // xor eax, edx
                         emitCwdCdqCqo(env)
-                        edx.storage.emitMask(env, this, edx.storage)
-                        this.emitExclusiveOr(env, edx.storage, this)
+                        val edxSto = edx.storage!!.flatten()
+                        edxSto.emitMask(env, this, edxSto)
+                        this.emitExclusiveOr(env, edxSto, this)
                         env.dealloc(edx)
                     }
                 } else {
@@ -559,9 +562,9 @@ data class Reg(
         }
     }
 
-    override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) =
+    override fun <V : Value<X86Env>> emitExclusiveOr(env: X86Env, other: V, dest: Storage<X86Env>) =
         binaryOp0(env, other, dest, "xor")
 
-    override fun emitMask(env: Env, mask: Value, dest: Storage) =
+    override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) =
         binaryOp0(env, mask, dest, "and")
 }

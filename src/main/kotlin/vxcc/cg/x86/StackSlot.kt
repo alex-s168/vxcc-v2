@@ -1,30 +1,34 @@
-package vxcc
+package vxcc.cg.x86
+
+import vxcc.cg.Storage
+import vxcc.cg.Value
+import vxcc.cg.MemStorage
 
 class StackSlot(
     val spOff: Long,
     val width: Int,
-): MemStorage {
-    private fun spRegName(env: Env) =
+): AbstractX86Value(), MemStorage {
+    private fun spRegName(env: X86Env) =
         if (env.target.amd64_v1) "rsp"
         else "esp"
 
-    private fun spIndexStr(env: Env) =
+    private fun spIndexStr(env: X86Env) =
         if (spOff < 0)
             "${spRegName(env)} - $spOff"
         else
             "${spRegName(env)} + $spOff"
 
-    override fun reducedStorage(env: Env, to: Int): Storage =
+    override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> =
         StackSlot(spOff, to)
 
     override fun offsetBytes(offset: Int): MemStorage =
         StackSlot(spOff + offset, width)
 
-    override fun emitZero(env: Env) {
-        memSet(env, this, 0, width)
+    override fun emitZero(env: X86Env) {
+        env.memSet(this, 0, width)
     }
 
-    override fun emitMov(env: Env, dest: Storage) {
+    override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
         when (dest) {
             is Reg -> {
                 if (dest.totalWidth != width)
@@ -86,57 +90,57 @@ class StackSlot(
                 if (dest.getWidth() != width)
                     throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
 
-                memCpy(env, this, dest, width)
+                env.memCpy(this, dest, width)
             }
 
             else -> TODO("stack slot move to $dest")
         }
     }
 
-    override fun emitStaticMask(env: Env, dest: Storage, mask: Long) {
+    override fun emitStaticMask(env: X86Env, mask: Long, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitMask(env: Env, mask: Value, dest: Storage) {
+    override fun <V: Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun reduced(env: Env, to: Int): Value =
+    override fun reduced(env: X86Env, to: Int): Value<X86Env> =
         StackSlot(spOff, width)
 
-    override fun emitAdd(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitMul(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitSignedMul(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitSignedMul(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitShiftLeft(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitShiftLeft(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitStaticShiftLeft(env: Env, by: Long, dest: Storage) {
+    override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitShiftRight(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitShiftRight(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitStaticShiftRight(env: Env, by: Long, dest: Storage) {
+    override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitSignedMax(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitSignedMax(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun emitExclusiveOr(env: Env, other: Value, dest: Storage) {
+    override fun <V : Value<X86Env>> emitExclusiveOr(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
 }

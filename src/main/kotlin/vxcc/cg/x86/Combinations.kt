@@ -1,20 +1,21 @@
-package vxcc
+package vxcc.cg.x86
 
+import vxcc.cg.*
 import kotlin.math.ceil
 import kotlin.math.log2
 
-data class ArrIndex(
-    val arr: Either<Owner, Value>,
-    val index: Either<Owner, Value>,
+data class X86ArrIndex(
+    val arr: Either<Owner<X86Env>, Value<X86Env>>,
+    val index: Either<Owner<X86Env>, Value<X86Env>>,
     val stride: Long, // when stride is 1, 2, 4 or 8 -> lea [arr + index * stride], otherwise fma or shifting or mult
 ) {
     companion object {
         // both regs need to be GP or GP64EX !!!!!!!
-        private fun addrSelectorDirect(env: Env, arr: Reg, index: Reg, stride: Long) =
+        private fun addrSelectorDirect(env: X86Env, arr: Reg, index: Reg, stride: Long) =
             "[${arr.name} + ${index.name} * $stride]"
     }
 
-    internal fun emitOffset(env: Env, dest: Storage) {
+    internal fun emitOffset(env: X86Env, dest: Storage<X86Env>) {
         if (dest.getWidth() !in arrayOf(32, 64))
             throw Exception("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
 
@@ -42,36 +43,18 @@ data class ArrIndex(
             else -> {
                 dest.useInGPRegWriteBack(env, copyInBegin = false) { reg ->
                     // TODO: we can do better in some cases
-                    Multiply(index.mapA { it.storage }.commonize(), stride).emit(env, reg, null)
-                    reg.emitAdd(env, arr.mapA { it.storage }.commonize(), reg)
+                    X86Multiply(index.mapA { it.storage!!.flatten() }.flatten(), stride).emit(env, reg, null)
+                    reg.emitAdd(env, arr.mapA { it.storage!!.flatten() }.flatten(), reg)
                 }
             }
         }
     }
 
-    internal fun emitIndex(env: Env, dest: Storage) {
+    internal fun emitIndex(env: X86Env, dest: Storage<X86Env>) {
         if (dest.getWidth() !in arrayOf(32, 64))
             throw Exception("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
 
         TODO()
-    }
-}
-
-data class Increment(
-    val value: Value,
-    val by: Long,
-) {
-    internal fun emit(env: Env, dest: Storage) {
-        TODO("Increment:emit()")
-    }
-}
-
-data class Decrement(
-    val value: Value,
-    val by: Long,
-) {
-    internal fun emit(env: Env, dest: Storage) {
-        TODO("Decrement:emit()")
     }
 }
 
@@ -85,11 +68,11 @@ if they're Next to eachother in memory you can Somewhat opt it by doing
 which is shorter because you store only an offset the second time and not the whole thing
  */
 
-data class Multiply(
-    val value: Value,
+data class X86Multiply(
+    val value: Value<X86Env>,
     val by: Long,
 ) {
-    internal fun emit(env: Env, dest: Storage, destOwner: Owner?) {
+    internal fun emit(env: X86Env, dest: Storage<X86Env>, destOwner: Owner<X86Env>?) {
         if (value is Immediate) {
             env.immediate(value.value * by, dest.getWidth()).emitMov(env, dest)
             return
@@ -120,7 +103,7 @@ data class Multiply(
 
             if (destOwner != null) {
                 destOwner.moveIntoReg(env)
-                doEmit(destOwner.storage.asReg())
+                doEmit(destOwner.storage!!.flatten().asReg())
             } else {
                 dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
                     doEmit(destReg)
@@ -136,7 +119,7 @@ data class Multiply(
 
             if (destOwner != null) {
                 destOwner.moveIntoReg(env)
-                doEmit(destOwner.storage.asReg())
+                doEmit(destOwner.storage!!.flatten().asReg())
             } else {
                 dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
                     doEmit(destReg)

@@ -1,7 +1,7 @@
-package vxcc
+package vxcc.cg
 
-data class Owner(
-    var storage: Storage,
+data class Owner<E: Env<E>>(
+    var storage: Either<StorageWithOwner<E>, Storage<E>>?,
     val flags: Flags,
     var canBeDepromoted: Flags? = null,
     /**
@@ -17,7 +17,7 @@ data class Owner(
     )
 
     companion object {
-        fun temp(): Owner =
-            Owner(Storage.none(), Flags(Env.Use.STORE, 0, null, Type.INT))
+        fun <E: Env<E>> temp(): Owner<E> =
+            Owner(null, Flags(Env.Use.STORE, 0, null, Type.INT))
     }
 }

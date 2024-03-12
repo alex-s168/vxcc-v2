@@ -1,4 +1,4 @@
-package vxcc
+package vxcc.cg
 
 enum class Type(
     val vector: Boolean,

@@ -1,4 +1,4 @@
-package vxcc
+package vxcc.cg
 
 data class Obj<T>(val v: T)
 
@@ -62,5 +62,5 @@ class Either<A, B> private constructor(
     }
 }
 
-fun <A, B, R> Either<A, B>.commonize(): R where A: R, B: R =
+fun <A, B, R> Either<A, B>.flatten(): R where A: R, B: R =
     getAOrNull() ?: getB()
