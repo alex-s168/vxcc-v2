@@ -43,14 +43,14 @@ data class X86ArrIndex(
             else -> {
                 dest.useInGPRegWriteBack(env, copyInBegin = false) { reg ->
                     // TODO: we can do better in some cases
-                    X86Multiply(index.mapA { it.storage }.flatten(), stride).emit(env, reg, null)
-                    reg.emitAdd(env, arr.mapA { it.storage }.flatten(), reg)
+                    X86Multiply(index.mapA { it.storage!!.flatten() }.flatten(), stride).emit(env, reg, null)
+                    reg.emitAdd(env, arr.mapA { it.storage!!.flatten() }.flatten(), reg)
                 }
             }
         }
     }
 
-    internal fun emitIndex(env: X86Env, dest: Storage) {
+    internal fun emitIndex(env: X86Env, dest: Storage<X86Env>) {
         if (dest.getWidth() !in arrayOf(32, 64))
             throw Exception("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
 
@@ -103,7 +103,7 @@ data class X86Multiply(
 
             if (destOwner != null) {
                 destOwner.moveIntoReg(env)
-                doEmit(destOwner.storage.asReg())
+                doEmit(destOwner.storage!!.flatten().asReg())
             } else {
                 dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
                     doEmit(destReg)
@@ -119,7 +119,7 @@ data class X86Multiply(
 
             if (destOwner != null) {
                 destOwner.moveIntoReg(env)
-                doEmit(destOwner.storage.asReg())
+                doEmit(destOwner.storage!!.flatten().asReg())
             } else {
                 dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
                     doEmit(destReg)

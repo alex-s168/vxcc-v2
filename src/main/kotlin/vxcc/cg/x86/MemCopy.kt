@@ -2,11 +2,11 @@ package vxcc.cg.x86
 
 import vxcc.cg.*
 
-fun X86Env.memCpy(src: X86MemStorage, dest: X86MemStorage, len: Int) {
+fun X86Env.memCpy(src: MemStorage, dest: MemStorage, len: Int) {
     TODO("memcpy()")
 }
 
-fun X86Env.memSet(dest: X86MemStorage, value: Byte, len: Int) {
+fun X86Env.memSet(dest: MemStorage, value: Byte, len: Int) {
     if (this.optMode == Env.OptMode.SIZE) {
         TODO()
     } else {
@@ -48,6 +48,6 @@ fun X86Env.memSet(dest: X86MemStorage, value: Byte, len: Int) {
     }
 }
 
-fun X86Env.memSet(dest: X86MemStorage, value: Value<X86Env>, len: Int) {
+fun X86Env.memSet(dest: MemStorage, value: Value<X86Env>, len: Int) {
     TODO("memset(Value)")
 }

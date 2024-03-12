@@ -41,7 +41,6 @@ data class X86Env(
         }
     }
 
-    var verboseAsm = false
     var regAlloc = true
     override var optMode = Env.OptMode.SPEED
 
@@ -92,7 +91,7 @@ data class X86Env(
         if (owner.canBeDepromoted != null) {
             registers[index] = Obj(Owner.temp()) // we don't want alloc() to return the same reg
             val new = alloc(owner.flags)
-            owner.storage!!.flatten().emitMov(this, new.storage)
+            owner.storage!!.flatten().emitMov(this, new.storage!!.flatten())
             dealloc(owner)
             owner.storage = new.storage
             registers[index] = Obj(null)
@@ -186,14 +185,14 @@ data class X86Env(
         if (!reg.used) {
             val r = Reg.from(reg.index, flags.totalWidth)
                 .reducedStorage(this, flags.totalWidth)
-            val o = Owner<X86Env>(r, flags)
+            val o = Owner(Either.ofB(r), flags)
             registers[reg.index] = Obj(o)
             return o
         }
 
         val owner = registers[reg.index]!!.v!!
         val temp = alloc(owner.flags)
-        owner.storage!!.flatten().emitMov(this, temp.storage)
+        owner.storage!!.flatten().emitMov(this, temp.storage!!.flatten())
         val new = owner.copy()
         owner.storage = temp.storage
         registers[reg.index] = Obj(new)
@@ -231,9 +230,9 @@ data class X86Env(
     }
 
     override fun dealloc(owner: Owner<X86Env>) =
-        when (owner.storage) {
+        when (val ownerSto = owner.storage!!.flatten()) {
             is Reg -> {
-                val reg = owner.storage.asReg()
+                val reg = ownerSto.asReg()
                 val id = reg.asIndex()
                 reg.onDealloc(owner)
                 if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") }.v == null)
@@ -267,7 +266,7 @@ data class X86Env(
 
     // TODO: 16 byte align stack alloc vals (and make sure callconv asserts that sp aligned 16, otherwise align 16)
 
-    override fun staticAlloc(widthBytes: Int, init: ByteArray?): X86MemStorage {
+    override fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
         // if speed then align 16 else align idk
@@ -278,7 +277,7 @@ data class X86Env(
 
     override fun makeVecFloat(spFloat: Value<X86Env>, count: Int): Owner<X86Env> {
         val reg = forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, count * 32, 32, Type.VxFLT))
-        val regReg = reg.storage.asReg()
+        val regReg = reg.storage!!.flatten().asReg()
         if (target.avx && regReg.totalWidth in arrayOf(128, 256)) { // xmm and ymm
             spFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 32)
@@ -297,7 +296,7 @@ data class X86Env(
 
     override fun makeVecDouble(dpFloat: Value<X86Env>, count: Int): Owner<X86Env> {
         val reg = forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, count * 64, 64, Type.VxFLT))
-        val regReg = reg.storage.asReg()
+        val regReg = reg.storage!!.flatten().asReg()
         if (target.avx && regReg.totalWidth == 256) { // ymm
             dpFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 64)
@@ -314,7 +313,7 @@ data class X86Env(
         return reg
     }
 
-    override fun shuffleVecX32(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage) {
+    override fun shuffleVecX32(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
         var sel = 0
         selection.reversed().forEach { pos ->
             require(pos <= 0b11)

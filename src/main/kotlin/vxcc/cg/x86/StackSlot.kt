@@ -2,11 +2,12 @@ package vxcc.cg.x86
 
 import vxcc.cg.Storage
 import vxcc.cg.Value
+import vxcc.cg.MemStorage
 
 class StackSlot(
     val spOff: Long,
     val width: Int,
-): AbstractX86Value(), X86MemStorage {
+): AbstractX86Value(), MemStorage {
     private fun spRegName(env: X86Env) =
         if (env.target.amd64_v1) "rsp"
         else "esp"
@@ -20,7 +21,7 @@ class StackSlot(
     override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> =
         StackSlot(spOff, to)
 
-    override fun offsetBytes(offset: Int): X86MemStorage =
+    override fun offsetBytes(offset: Int): MemStorage =
         StackSlot(spOff + offset, width)
 
     override fun emitZero(env: X86Env) {
@@ -85,7 +86,7 @@ class StackSlot(
                 }
             }
 
-            is X86MemStorage -> {
+            is MemStorage -> {
                 if (dest.getWidth() != width)
                     throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
 

@@ -11,7 +11,7 @@ data class Reg(
     val totalWidth: Int,
     val type: Type,
     val localId: Int,
-): Storage<X86Env> {
+): AbstractX86Value(), Storage<X86Env> {
     fun isGP() =
         this.type == Type.GP || this.type == Type.GP64EX
 
@@ -223,7 +223,7 @@ data class Reg(
     data class View internal constructor(
         val reg: Reg,
         val size: Int,
-    ): Storage<X86Env> {
+    ): AbstractX86Value(), Storage<X86Env> {
         init {
             reg.views.add(this)
         }
@@ -239,10 +239,11 @@ data class Reg(
 
         fun zextCompute(env: X86Env): Owner<X86Env> {
             val regSize = env.makeRegSize(size)
-            val temp = env.forceAllocReg(Owner.Flags(X86Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.vxcc.x86.Type.INT))
-            reg.reducedAsReg(regSize).emitMov(env, temp.storage)
-            temp.storage.emitStaticMask(env, temp.storage,  (2.0).pow(size).toLong() - 1)
-            temp.canBeDepromoted = Owner.Flags(X86Env.Use.STORE, regSize, null, vxcc.vxcc.x86.Type.INT)
+            val temp = env.forceAllocReg(Owner.Flags(Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.cg.Type.INT))
+            val tempSto = temp.storage!!.flatten()
+            reg.reducedAsReg(regSize).emitMov(env, tempSto)
+            tempSto.emitStaticMask(env, (2.0).pow(size).toLong() - 1, tempSto)
+            temp.canBeDepromoted = Owner.Flags(Env.Use.STORE, regSize, null, vxcc.cg.Type.INT)
             return temp
         }
 
@@ -279,7 +280,7 @@ data class Reg(
 
         override fun <V : Value<X86Env>> emitShiftLeft(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten<>().emitShiftLeft(env, other, dest)
+            zext.storage!!.flatten().emitShiftLeft(env, other, dest)
         }
 
         override fun <V : Value<X86Env>> emitShiftRight(env: X86Env, other: V, dest: Storage<X86Env>) {
@@ -319,7 +320,7 @@ data class Reg(
 
         override fun <V : Value<X86Env>> emitSignedMax(env: X86Env, other: V, dest: Storage<X86Env>) {
             val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten<>().emitSignedMax(env, other, dest)
+            zext.storage!!.flatten().emitSignedMax(env, other, dest)
         }
 
         override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) {
