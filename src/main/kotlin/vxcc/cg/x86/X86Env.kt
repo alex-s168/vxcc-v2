@@ -92,7 +92,7 @@ data class X86Env(
         if (owner.canBeDepromoted != null) {
             registers[index] = Obj(Owner.temp()) // we don't want alloc() to return the same reg
             val new = alloc(owner.flags)
-            owner.storage!!.commonize().emitMov(this, new.storage)
+            owner.storage!!.flatten().emitMov(this, new.storage)
             dealloc(owner)
             owner.storage = new.storage
             registers[index] = Obj(null)
@@ -193,11 +193,11 @@ data class X86Env(
 
         val owner = registers[reg.index]!!.v!!
         val temp = alloc(owner.flags)
-        owner.storage!!.commonize().emitMov(this, temp.storage)
+        owner.storage!!.flatten().emitMov(this, temp.storage)
         val new = owner.copy()
         owner.storage = temp.storage
         registers[reg.index] = Obj(new)
-        new.storage = Either.ofB(new.storage!!.commonize().reducedStorage(this, flags.totalWidth))
+        new.storage = Either.ofB(new.storage!!.flatten().reducedStorage(this, flags.totalWidth))
         return new
     }
 
@@ -267,7 +267,7 @@ data class X86Env(
 
     // TODO: 16 byte align stack alloc vals (and make sure callconv asserts that sp aligned 16, otherwise align 16)
 
-    override fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage {
+    override fun staticAlloc(widthBytes: Int, init: ByteArray?): X86MemStorage {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
         // if speed then align 16 else align idk

@@ -1,40 +1,41 @@
 package vxcc.cg.x86
 
-import vxcc.cg.Owner
-import vxcc.cg.Type
+import vxcc.cg.*
 
-fun memCpy(env: X86Env, src: MemStorage, dest: MemStorage, len: Int) {
+fun X86Env.memCpy(src: X86MemStorage, dest: X86MemStorage, len: Int) {
     TODO("memcpy()")
 }
 
-fun memSet(env: X86Env, dest: MemStorage, value: Byte, len: Int) {
-    if (env.optMode == X86Env.OptMode.SIZE) {
-
+fun X86Env.memSet(dest: X86MemStorage, value: Byte, len: Int) {
+    if (this.optMode == Env.OptMode.SIZE) {
+        TODO()
     } else {
-        if (env.target.sse1) {
+        if (this.target.sse1) {
             TODO()
-        } else if (env.target.mmx) {
+        } else if (this.target.mmx) {
             // TODO: check align
-            val reg = env.forceAllocReg(Owner.Flags(X86Env.Use.VECTOR_ARITHM, 64, 8, Type.VxUINT))
+            val reg = this.forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, 64, 8, Type.VxUINT))
+            val regSto = reg.storage!!.flatten()
             if (value.toInt() == 0) {
-                reg.storage.emitZero(env)
+                regSto.emitZero(this)
             } else {
-                val valueLoc = env.staticAlloc(8, ByteArray(8) { value })
-                valueLoc.emitMov(env, reg.storage)
+                val valueLoc = this.staticAlloc(8, ByteArray(8) { value })
+                valueLoc.emitMov(this, regSto)
             }
             val first = len / 8
             for (i in 0.. first) {
                 val off = i * 8
-                reg.storage.emitMov(env, dest.offsetBytes(off))
+                regSto.emitMov(this, dest.offsetBytes(off))
             }
-            env.dealloc(reg)
+            this.dealloc(reg)
             var left = len % 8
             val valuex4 = value.toLong() or
                     (value.toLong() shl 8) or
                     (value.toLong() shl 16) or
                     (value.toLong() shl 24)
             for (i in 0..left / 4) {
-                env.immediate(valuex4, 32).emitMov(env, dest.offsetBytes(first + i * 4).reducedStorage(env, 32))
+                this.immediate(valuex4, 32)
+                    .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, 32))
             }
             left %= 4
             if (left > 0) {
@@ -47,6 +48,6 @@ fun memSet(env: X86Env, dest: MemStorage, value: Byte, len: Int) {
     }
 }
 
-fun memSet(env: X86Env, dest: MemStorage, value: Value, len: Int) {
+fun X86Env.memSet(dest: X86MemStorage, value: Value<X86Env>, len: Int) {
     TODO("memset(Value)")
 }

@@ -43,8 +43,8 @@ data class X86ArrIndex(
             else -> {
                 dest.useInGPRegWriteBack(env, copyInBegin = false) { reg ->
                     // TODO: we can do better in some cases
-                    X86Multiply(index.mapA { it.storage }.commonize(), stride).emit(env, reg, null)
-                    reg.emitAdd(env, arr.mapA { it.storage }.commonize(), reg)
+                    X86Multiply(index.mapA { it.storage }.flatten(), stride).emit(env, reg, null)
+                    reg.emitAdd(env, arr.mapA { it.storage }.flatten(), reg)
                 }
             }
         }

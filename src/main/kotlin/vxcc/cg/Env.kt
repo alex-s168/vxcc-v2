@@ -1,12 +1,12 @@
 package vxcc.cg
 
-import vxcc.cg.x86.MemStorage
+import vxcc.cg.x86.X86MemStorage
 
 interface Env<T: Env<T>> {
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
     fun alloc(flags: Owner.Flags): Owner<T>
     fun dealloc(owner: Owner<T>)
-    fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage
+    fun staticAlloc(widthBytes: Int, init: ByteArray?): X86MemStorage
 
     fun makeRegSize(size: Int): Int
 
