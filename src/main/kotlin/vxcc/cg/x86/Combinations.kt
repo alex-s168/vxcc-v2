@@ -97,7 +97,7 @@ data class X86Multiply(
         else if (by == 3L || by == 5L || by == 9L) {
             fun doEmit(destReg: Reg) {
                 value.useInGPReg(env) { valReg ->
-                    env.emit("lea ${destReg.name}, [${valReg.name} + ${valReg.name} * ${by - 1}]")
+                    env.emit("  lea ${destReg.name}, [${valReg.name} + ${valReg.name} * ${by - 1}]")
                 }
             }
 

@@ -19,11 +19,15 @@ interface Env<T: Env<T>> {
 
     fun newLocalLabel(): String
     fun switch(label: String)
+    fun export(label: String)
+    fun import(label: String)
 
     fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<T>
     fun <V: Value<T>> addrToMemStorage(addr: V, flags: Owner.Flags): MemStorage<T>
 
     fun <V: Value<T>> flagsOf(value: V): Owner.Flags
+
+    fun <V: Value<T>> backToImm(value: V): Long
 
     val optimal: Optimal<T>
 

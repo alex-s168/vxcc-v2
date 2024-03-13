@@ -11,7 +11,7 @@ data class X86Env(
         println(a)
 
     fun emitBytes(bytes: ByteArray) =
-        emit("db ${bytes.joinToString { "0x${it.toString(16)}" }}")
+        emit("  db ${bytes.joinToString { "0x${it.toString(16)}" }}")
 
     val registers = mutableMapOf<Reg.Index, Obj<Owner<X86Env>?>>()
 
@@ -74,7 +74,7 @@ data class X86Env(
         set(value) {
             field = value
             if (!value)
-                emit("emms")
+                emit("  emms")
         }
 
     data class BestRegResult(
@@ -304,12 +304,12 @@ data class X86Env(
         if (target.avx && regReg.totalWidth in arrayOf(128, 256)) { // xmm and ymm
             spFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 32)
-                emit("vbroadcastss ${regReg.name}, ${valReg.name}")
+                emit("  vbroadcastss ${regReg.name}, ${valReg.name}")
             }
         } else if ((target.avx512f || target.avx512vl) && regReg.totalWidth == 512) { // zmm
             spFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 32)
-                emit("vbroadcastss ${regReg.name}, ${valReg.name}")
+                emit("  vbroadcastss ${regReg.name}, ${valReg.name}")
             }
         } else {
             TODO("makeVecFloat if not certain CPU features")
@@ -323,12 +323,12 @@ data class X86Env(
         if (target.avx && regReg.totalWidth == 256) { // ymm
             dpFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 64)
-                emit("vbroadcastsd ${regReg.name}, ${valReg.name}")
+                emit("  vbroadcastsd ${regReg.name}, ${valReg.name}")
             }
         } else if (target.avx512f && regReg.totalWidth == 512) { // zmm
             dpFloat.useInGPReg(this) { valReg ->
                 require(valReg.totalWidth == 64)
-                emit("vbroadcastsd ${regReg.name}, ${valReg.name}")
+                emit("  vbroadcastsd ${regReg.name}, ${valReg.name}")
             }
         } else {
             TODO("makeVecDouble if not certain CPU features")
@@ -338,6 +338,14 @@ data class X86Env(
 
     override fun switch(label: String) {
         emit("$label:")
+    }
+
+    override fun export(label: String) {
+        emit("global $label")
+    }
+
+    override fun import(label: String) {
+        emit("extern $label")
     }
 
     private var lidCounter = 0
@@ -380,4 +388,9 @@ data class X86Env(
             )
             else -> TODO("flagsOf $value")
         }
+
+    override fun <V : Value<X86Env>> backToImm(value: V): Long {
+        require(value is Immediate)
+        return value.value
+    }
 }

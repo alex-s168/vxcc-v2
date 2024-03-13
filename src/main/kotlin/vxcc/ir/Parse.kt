@@ -14,18 +14,24 @@ Example code:
 (ret)
  */
 
-data class IrScope<E: Env<E>>(
-    val locals: MutableMap<String, Pair<TypeId, Owner<E>>> = mutableMapOf()
+data class IrGlobalScope<E: Env<E>>(
+    val types: MutableMap<String, Owner.Flags> = mutableMapOf(),
+    val functions: MutableList<String> = mutableListOf(),
 )
 
-data class IrCall<E: Env<E>>(
+data class IrLocalScope<E: Env<E>>(
+    val locals: MutableMap<String, Pair<TypeId, Owner<E>>> = mutableMapOf(),
+    val blocks: MutableList<String> = mutableListOf()
+)
+
+internal data class IrCall<E: Env<E>>(
     val type: Owner.Flags?,
     val fn: String,
     val args: List<Value<E>>
 )
 
 private fun <E: Env<E>> parseAndEmitCall(
-    ctx: IrScope<E>,
+    ctx: IrLocalScope<E>,
     typeResolver: (TypeId) -> Owner.Flags,
     callEmitter: (E, IrCall<E>, dest: Owner<E>?) -> Unit,
     env: E,
@@ -45,7 +51,7 @@ private fun <E: Env<E>> parseAndEmitCall(
 }
 
 private fun <E: Env<E>> parseAndEmitVal(
-    ctx: IrScope<E>,
+    ctx: IrLocalScope<E>,
     typeResolver: (TypeId) -> Owner.Flags,
     callEmitter: (E, IrCall<E>, dest: Owner<E>?) -> Unit,
     env: E,
@@ -84,20 +90,30 @@ private fun <E: Env<E>> parseAndEmitVal(
     }
 }
 
-fun <E: Env<E>> parseAndEmit(
+private fun <E: Env<E>> parseAndEmit(
     lines: Iterable<String>,
     env: E,
-    ctx: IrScope<E> = IrScope(),
+    ctx: IrLocalScope<E>,
     typeResolver: (TypeId) -> Owner.Flags,
 ) {
     for (lineIn in lines) {
         val line = lineIn.split('#', limit = 0)[0].trim()
         when (line.firstOrNull() ?: continue) {
+            ':' -> {
+                val bn = line.substring(1)
+                env.switch(bn)
+                ctx.blocks.add(bn)
+            }
             '%' -> {
                 val (name, rest) = line.substring(1).split(' ', limit = 2)
                 if (rest.startsWith('=')) {
                     parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, rest.substring(2)) { typeStr, type ->
-                        ctx.locals.computeIfAbsent(name) { typeStr to env.alloc(type) }.second
+                        if (name.contains('\'')) {
+                            val (rname, rdest) = name.split('\'')
+                            ctx.locals.computeIfAbsent(rname) { typeStr to env.forceAllocReg(type, rdest) }.second
+                        } else {
+                            ctx.locals.computeIfAbsent(name) { typeStr to env.alloc(type) }.second
+                        }
                     }
                 } else if (rest.startsWith("<>")) {
                     val into = rest.substring(3)
@@ -111,9 +127,56 @@ fun <E: Env<E>> parseAndEmit(
             }
             '~' -> {
                 val name = line.substring(3)
-                env.dealloc(ctx.locals[name]!!.second)
+                env.dealloc(ctx.locals.remove(name)!!.second)
             }
             else -> throw Exception("First symbol in line unexpected: $line")
+        }
+    }
+}
+
+fun <E: Env<E>> ir(
+    lines: Iterator<String>,
+    env: E,
+    ctx: IrGlobalScope<E> = IrGlobalScope(),
+) {
+    while (lines.hasNext()) {
+        var line = lines.next().trim()
+        if (line.isEmpty()) continue
+        if (line.startsWith("fn")) {
+            val fnName = line.substring(3)
+            env.switch(fnName)
+            val fnLines = mutableListOf<String>()
+            while (true) {
+                line = lines.next().trim()
+                if (line == "end")
+                    break
+                fnLines += line
+            }
+            ctx.functions.add(fnName)
+            parseAndEmit(fnLines, env, IrLocalScope()) { ctx.types[it]!! }
+        } else if (line.startsWith("type")) {
+            val (name, def) = line.substringAfter("type ").split(" = ", limit = 2)
+            assert(name !in ctx.types)
+            val defFlags = def.split(' ').associate {
+                val f = it.split(':')
+                require(f.size == 2)
+                f[0] to f[1]
+            }
+            val vType = defFlags[""]!!
+            val type = when (vType) {
+                "int" -> {
+                    val vWidth = defFlags["w"]!!.toInt()
+                    Owner.Flags(Env.Use.SCALAR_AIRTHM, vWidth, null, Type.INT)
+                }
+                "flt" -> {
+                    val vWidth = defFlags["w"]!!.toInt()
+                    Owner.Flags(Env.Use.SCALAR_AIRTHM, vWidth, null, Type.FLT)
+                }
+                else -> throw Exception("unknown type type")
+            }
+            ctx.types[name] = type
+        } else {
+            throw Exception("Unknown kind of declaration")
         }
     }
 }
