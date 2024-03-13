@@ -407,14 +407,62 @@ data class X86Env(
     }
 
     override fun <V : Value<X86Env>> emitCall(fn: V) {
-        TODO()
+        fn.useInGPReg(this) {
+            emit("  call ${it.name}")
+        }
+    }
+
+    private fun <V : Value<X86Env>> emitTest(va: V) {
+        va.useInGPReg(this) {
+            emit("  test ${it.name}, ${it.name}")
+        }
     }
 
     override fun <V : Value<X86Env>> emitJumpIf(bool: V, block: String) {
-        TODO()
+        emitTest(bool)
+        emit("  jnz $block")
     }
 
     override fun <V : Value<X86Env>> emitJumpIfNot(bool: V, block: String) {
-        TODO()
+        emitTest(bool)
+        emit("  jz $block")
+    }
+
+    private fun <A: Value<X86Env>, B: Value<X86Env>> emitCmp(a: A, b: B) {
+        a.useInGPReg(this) { aReg ->
+            b.useInGPReg(this) { bReg ->
+                emit("  cmp ${aReg.name}, ${bReg.name}")
+            }
+        }
+    }
+
+    override fun <A: Value<X86Env>, B: Value<X86Env>> emitJumpIfEq(a: A, b: B, block: String) {
+        emitCmp(a, b)
+        emit("  je $block")
+    }
+
+    override fun <A: Value<X86Env>, B: Value<X86Env>> emitJumpIfNotEq(a: A, b: B, block: String) {
+        emitCmp(a, b)
+        emit("  jne $block")
+    }
+
+    override fun <A: Value<X86Env>, B: Value<X86Env>> emitJumpIfLess(a: A, b: B, block: String) {
+        emitCmp(a, b)
+        emit("  jb $block")
+    }
+
+    override fun <A: Value<X86Env>, B: Value<X86Env>> emitJumpIfGreater(a: A, b: B, block: String) {
+        emitCmp(a, b)
+        emit("  ja $block")
+    }
+
+    override fun <A: Value<X86Env>, B: Value<X86Env>> emitJumpIfSignedLess(a: A, b: B, block: String) {
+        emitCmp(a, b)
+        emit("  jl $block")
+    }
+
+    override fun <A: Value<X86Env>, B: Value<X86Env>> emitJumpIfSignedGreater(a: A, b: B, block: String) {
+        emitCmp(a, b)
+        emit("  jg $block")
     }
 }

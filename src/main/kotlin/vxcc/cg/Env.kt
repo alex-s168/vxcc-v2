@@ -7,6 +7,12 @@ interface Env<T: Env<T>> {
     fun emitJump(block: String)
     fun <V: Value<T>> emitJumpIf(bool: V, block: String)
     fun <V: Value<T>> emitJumpIfNot(bool: V, block: String)
+    fun <A: Value<T>, B: Value<T>> emitJumpIfEq(a: A, b: B, block: String)
+    fun <A: Value<T>, B: Value<T>> emitJumpIfNotEq(a: A, b: B, block: String)
+    fun <A: Value<T>, B: Value<T>> emitJumpIfLess(a: A, b: B, block: String)
+    fun <A: Value<T>, B: Value<T>> emitJumpIfGreater(a: A, b: B, block: String)
+    fun <A: Value<T>, B: Value<T>> emitJumpIfSignedLess(a: A, b: B, block: String)
+    fun <A: Value<T>, B: Value<T>> emitJumpIfSignedGreater(a: A, b: B, block: String)
 
     fun forceIntoReg(owner: Owner<T>, name: String)
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
