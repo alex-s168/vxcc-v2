@@ -4,13 +4,10 @@ enum class Type(
     val vector: Boolean,
     val int: Boolean = false,
     val float: Boolean = false,
-    val signed: Boolean = false,
 ) {
-    INT(vector = false, int = true, signed = true),
-    UINT(vector = false, int = true, signed = false),
+    INT(vector = false, int = true),
     FLT(vector = false, float = true),
 
-    VxINT(vector = true, int = true, signed = true),
-    VxUINT(vector = true, int = true, signed = false),
+    VxINT(vector = true, int = true),
     VxFLT(vector = true, float = true),
 }

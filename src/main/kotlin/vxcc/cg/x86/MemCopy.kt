@@ -14,7 +14,7 @@ fun X86Env.memSet(dest: MemStorage<X86Env>, value: Byte, len: Int) {
             TODO()
         } else if (this.target.mmx) {
             // TODO: check align
-            val reg = this.forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, 64, 8, Type.VxUINT))
+            val reg = this.forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, 64, 8, Type.VxINT))
             val regSto = reg.storage!!.flatten()
             if (value.toInt() == 0) {
                 regSto.emitZero(this)
@@ -35,7 +35,7 @@ fun X86Env.memSet(dest: MemStorage<X86Env>, value: Byte, len: Int) {
                     (value.toLong() shl 24)
             for (i in 0..left / 4) {
                 this.immediate(valuex4, 32)
-                    .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, Owner.Flags(Env.Use.SCALAR_AIRTHM, 32, null, Type.UINT)))
+                    .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, Owner.Flags(Env.Use.SCALAR_AIRTHM, 32, null, Type.INT)))
             }
             left %= 4
             if (left > 0) {

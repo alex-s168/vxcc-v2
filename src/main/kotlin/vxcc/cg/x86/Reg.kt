@@ -411,7 +411,7 @@ data class Reg(
                 if (other.value == 0L && dest is Reg && dest.type == Type.GP && dest.localId == 0) {
                     val edx = env.allocReg(
                         env.getRegByIndex(Index(Type.GP, 2)),
-                        Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.cg.Type.UINT)
+                        Owner.Flags(Env.Use.SCALAR_AIRTHM, this.totalWidth, null, vxcc.cg.Type.INT)
                     )
                     if (edx == null) {
                         useInGPReg(env) {
@@ -478,7 +478,7 @@ data class Reg(
                 32 -> {
                     require(env.target.sse1)
                     require(selection.size == 4)
-                    dest.useInRegWriteBack(env, Owner.Flags(Env.Use.VECTOR_ARITHM, 128, 32, vxcc.cg.Type.VxUINT), copyInBegin = false) { dreg ->
+                    dest.useInRegWriteBack(env, Owner.Flags(Env.Use.VECTOR_ARITHM, 128, 32, vxcc.cg.Type.VxINT), copyInBegin = false) { dreg ->
                         require(dreg.totalWidth == 128) {
                             throw Exception("Incompatible destination storage")
                         }

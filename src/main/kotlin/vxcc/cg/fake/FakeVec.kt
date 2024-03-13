@@ -16,10 +16,9 @@ open class FakeVec<E: Env<E>> private constructor(
         fun <E: Env<E>> create(env: E, flags: Owner.Flags): FakeVec<E> {
             val elements = mutableListOf<Owner<E>>()
             val type = when (flags.type) {
-                Type.VxUINT -> Type.UINT
                 Type.VxINT -> Type.INT
                 Type.VxFLT -> Type.FLT
-                else -> Type.UINT
+                else -> Type.INT
             }
             val elemFlags =
                 if (flags.use == Env.Use.VECTOR_ARITHM)

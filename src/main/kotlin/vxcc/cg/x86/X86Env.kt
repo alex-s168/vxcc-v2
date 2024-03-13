@@ -48,7 +48,7 @@ data class X86Env(
 
     override val optimal = object: Optimal<X86Env> {
         /** overall fastest boolean type */
-        override val boolFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.UINT)
+        override val boolFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.INT)
 
         /** overall smallest boolean type */
         override val boolSmall = boolFast
@@ -57,7 +57,7 @@ data class X86Env(
         override val bool = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
 
         /** overall fastest int type */
-        override val intFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.UINT)
+        override val intFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.INT)
 
         /** overall smallest int type */
         override val intSmall = intFast
@@ -65,7 +65,7 @@ data class X86Env(
         /** fastest int type if speed opt, otherwise smallest int type */
         override val int = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
 
-        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else if (target.amd64_v1) 64 else 16, null, Type.UINT)
+        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else if (target.amd64_v1) 64 else 16, null, Type.INT)
     }
 
     internal var fpuUse: Boolean = false
@@ -371,20 +371,20 @@ data class X86Env(
                 if (value.vecElementWidth == null) Env.Use.SCALAR_AIRTHM else Env.Use.VECTOR_ARITHM,
                 value.totalWidth,
                 value.vecElementWidth,
-                if (value.vecElementWidth == null) Type.UINT else Type.VxUINT,
+                if (value.vecElementWidth == null) Type.INT else Type.VxINT,
             )
             is FakeVec<*> -> Owner.Flags(
                 Env.Use.VECTOR_ARITHM,
                 value.getWidth(),
                 value.elemWidth,
-                Type.VxUINT,
+                Type.VxINT,
             )
             is FakeBitSlice<*> -> value.flags
             is StackSlot -> Owner.Flags(
                 if (value.vecElemWidth == null) Env.Use.SCALAR_AIRTHM else Env.Use.VECTOR_ARITHM,
                 value.width,
                 value.vecElemWidth,
-                if (value.vecElemWidth == null) Type.UINT else Type.VxUINT,
+                if (value.vecElemWidth == null) Type.INT else Type.VxINT,
             )
             else -> TODO("flagsOf $value")
         }
