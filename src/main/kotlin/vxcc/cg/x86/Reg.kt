@@ -5,7 +5,6 @@ import vxcc.cg.fake.FakeBitSlice
 import kotlin.math.pow
 
 // TODO: check destination size when operating
-// TODO: the idiot designers of amd64 decided that changing e*x zeros out the top of r*x...
 
 data class Reg(
     val name: String,
@@ -71,13 +70,13 @@ data class Reg(
 
             if (name.startsWith('r')) {
                 if (name.endsWith('b'))
-                    return fromName(name.dropLast(1)).reducedAsReg(8)
+                    return fromName(name.dropLast(1)).reducedAsRegForce(8)
 
                 if (name.endsWith('w'))
-                    return fromName(name.dropLast(1)).reducedAsReg(16)
+                    return fromName(name.dropLast(1)).reducedAsRegForce(16)
 
                 if (name.endsWith('d'))
-                    return fromName(name.dropLast(1)).reducedAsReg(32)
+                    return fromName(name.dropLast(1)).reducedAsRegForce(32)
 
                 val substr = name.substring(1)
                 return substr.toIntOrNull()?.let {
@@ -230,15 +229,22 @@ data class Reg(
             env.alloc(flags).storage!!.flatten()
         } else {
             try {
-                reducedAsReg(flags.totalWidth)
+                reducedAsReg(env, flags.totalWidth)
             } catch (_: Exception) {
                 FakeBitSlice(this, flags)
             }
         }
 
     @Throws(Exception::class)
-    fun reducedAsReg(to: Int): Reg =
+    fun reducedAsRegForce(to: Int): Reg =
         from(asIndex(), to)
+
+    @Throws(Exception::class)
+    fun reducedAsReg(env: X86Env, to: Int): Reg =
+        if (env.target.amd64_v1 && to == 32 && totalWidth == 64)
+            throw Exception("Can't reduce 64-bit gp to 32-bit gp because of how amd64 works")
+        else
+            reducedAsRegForce(to)
 
     /**
      * Move into destination.
@@ -258,8 +264,8 @@ data class Reg(
                     Type.GP64EX -> when (dest.type) {
                         Type.GP,
                         Type.GP64EX -> {
-                            val src = reducedAsReg(dest.totalWidth)
-                            env.emit("mov ${dest.name}, ${src.name}")
+                            val src = reducedAsReg(env, dest.totalWidth)
+                            env.emit("  mov ${dest.name}, ${src.name}")
                         }
 
                         else -> TODO("mov for src register type $type to dest ${dest.type}")
@@ -267,7 +273,7 @@ data class Reg(
 
                     Type.MM -> when (dest.type) {
                         Type.MM -> {
-                            env.emit("movq ${dest.name} ${name}")
+                            env.emit("  movq ${dest.name} ${name}")
                         }
 
                         else -> throw Exception("Cannot move MM vector into dest ${dest.type}; use emitVecExtract() or emitMov(env, dest.reduced(64))")
@@ -296,7 +302,7 @@ data class Reg(
             throw Exception("Can only static mask register values which are stored in GP or GP64EX registers")
 
         dest.useInGPRegWriteBack(env, copyInBegin = true) { destReg ->
-            env.emit("and ${destReg.name}, $mask")
+            env.emit("  and ${destReg.name}, $mask")
         }
     }
 
@@ -309,9 +315,9 @@ data class Reg(
 
         if (dest == this) {
             when (other) {
-                is Immediate -> env.emit("$op $name, ${other.value}")
+                is Immediate -> env.emit("  $op $name, ${other.value}")
                 else -> other.useInGPReg(env) { reg ->
-                    env.emit("$op $name, ${reg.name}")
+                    env.emit("  $op $name, ${reg.name}")
                 }
             }
         }
@@ -336,7 +342,7 @@ data class Reg(
 
     override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) =
         if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax
-            env.emit("mul ${other.name}")
+            env.emit("  mul ${other.name}")
         else
             emitSignedMul(env, other, dest)
 
@@ -346,15 +352,15 @@ data class Reg(
 
         when (other) {
             is Immediate -> dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
-                env.emit("imul ${destReg.name}, ${this.name}, ${other.value}")
+                env.emit("  imul ${destReg.name}, ${this.name}, ${other.value}")
             }
             else -> other.useInGPReg(env) { reg ->
                 if (this == dest) {
-                    env.emit("imul ${this.name}, ${reg.name}")
+                    env.emit("  imul ${this.name}, ${reg.name}")
                 } else {
                     dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
                         emitMov(env, destReg)
-                        env.emit("imul ${destReg.name}, ${reg.name}")
+                        env.emit("  imul ${destReg.name}, ${reg.name}")
                     }
                 }
             }
@@ -372,29 +378,29 @@ data class Reg(
             Type.GP,
             Type.GP64EX ->
                 if (totalWidth == 64)
-                    reducedAsReg(32).let { env.emit("xor ${it.name}, ${it.name}") }
+                    reducedAsRegForce(32).let { env.emit("xor ${it.name}, ${it.name}") }
                 else
-                    env.emit("xor $name, $name")
+                    env.emit("  xor $name, $name")
 
             Type.MM ->
-                env.emit("pxor $name, $name")
+                env.emit("  pxor $name, $name")
 
             Type.XMM,
             Type.XMM64,
             Type.ZMMEX ->
                 if (env.optMode == Env.OptMode.SIZE)
-                    env.emit("xorps $name, $name")
+                    env.emit("  xorps $name, $name")
                 else
-                    env.emit("pxor $name, $name")
+                    env.emit("  pxor $name, $name")
         }
 
     private fun emitCwdCdqCqo(env: X86Env) {
         assert(this.type == Type.GP && this.localId == 0)
         when (this.totalWidth) {
             8 -> throw Exception("cwd/cdq/cqo not available for 8 bit regs")
-            16 -> env.emit("cwd")
-            32 -> env.emit("cdq")
-            64 -> env.emit("cqo")
+            16 -> env.emit("  cwd")
+            32 -> env.emit("  cdq")
+            64 -> env.emit("  cqo")
             else -> throw Exception("wtf")
         }
     }
@@ -437,14 +443,14 @@ data class Reg(
                 dest.useInGPRegWriteBack(env) { dreg ->
                     other.useInGPReg(env) { reg ->
                         if (reg != dreg)
-                            env.emit("mov ${dreg.name}, ${reg.name}")
-                        env.emit("cmp $name, ${reg.name}")
+                            env.emit("  mov ${dreg.name}, ${reg.name}")
+                        env.emit("  cmp $name, ${reg.name}")
                         if (env.target.cmov) {
-                            env.emit("cmovl $name, ${dreg.name}")
+                            env.emit("  cmovl $name, ${dreg.name}")
                         } else {
                             val label = env.newLocalLabel()
-                            env.emit("jnl $label")
-                            env.emit("mov $name, ${dreg.name}")
+                            env.emit("  jnl $label")
+                            env.emit("  mov $name, ${dreg.name}")
                             env.switch(label)
                         }
                     }
@@ -476,7 +482,7 @@ data class Reg(
                         require(dreg.totalWidth == 128) {
                             throw Exception("Incompatible destination storage")
                         }
-                        env.emit("shufps ${dreg.name}, ${this.name}, $sel")
+                        env.emit("  shufps ${dreg.name}, ${this.name}, $sel")
                     }
                 }
                 null -> throw Exception("cannot perform vector operation on scalar value")

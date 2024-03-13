@@ -37,11 +37,11 @@ class StackSlot(
                 when (dest.type) {
                     Reg.Type.GP,
                     Reg.Type.GP64EX -> {
-                        env.emit("mov ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                        env.emit("  mov ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                     }
 
                     Reg.Type.MM -> {
-                        env.emit("movq ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                        env.emit("  movq ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                     }
 
                     Reg.Type.XMM,
@@ -50,23 +50,23 @@ class StackSlot(
                         when (dest.totalWidth) {
                             128 ->
                                 if (spOff % 16 == 0L) {
-                                    env.emit("movaps ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                                    env.emit("  movaps ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                                 } else {
-                                    env.emit("movups ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                                    env.emit("  movups ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                                 }
 
                             256 ->
                                 if (spOff % 32 == 0L) {
-                                    env.emit("vmovaps ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                                    env.emit("  vmovaps ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                                 } else {
-                                    env.emit("vmovups ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                                    env.emit("  vmovups ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                                 }
 
                             512 ->
                                 if (spOff % 64 == 0L) {
-                                    env.emit("vmovaps ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                                    env.emit("  vmovaps ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                                 } else {
-                                    env.emit("vmovups ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
+                                    env.emit("  vmovups ${dest.name}, ${sizeStr(dest.totalWidth)} [${spIndexStr(env)}]")
                                 }
 
                             else -> throw Exception("wtf")
