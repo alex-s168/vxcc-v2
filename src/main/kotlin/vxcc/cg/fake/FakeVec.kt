@@ -2,10 +2,12 @@ package vxcc.cg.fake
 
 import vxcc.cg.*
 
+// TODO: maybe there are vecs with the same stride but just different total length; use those if possible
+
 open class FakeVec<E: Env<E>> private constructor(
     var elements: List<Owner<E>>,
     val elemWidth: Int,
-): AbstractVectorValue<E>, Storage<E> {
+):  Storage<E>, AbstractVectorValue<E> {
 
     fun dealloc(env: Env<E>) =
         elements.forEach { env.dealloc(it) }

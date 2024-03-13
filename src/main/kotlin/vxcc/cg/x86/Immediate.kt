@@ -1,9 +1,6 @@
 package vxcc.cg.x86
 
-import vxcc.cg.AbstractScalarValue
-import vxcc.cg.Owner
-import vxcc.cg.Storage
-import vxcc.cg.Value
+import vxcc.cg.*
 import kotlin.math.max
 import kotlin.math.pow
 
@@ -23,14 +20,7 @@ data class Immediate(
 
                 else -> TODO("immediate emit mov to reg type ${dest.type}")
             }
-
-            is Reg.View -> {
-                // we can NOT move into zext because it is a view, not a copy of a view!!
-                TODO("immediate emit mov to reg view")
-                // remove key env from zextMap because need to re-compute
-                // this is slow but it is what it is
-            }
-
+            is PullingStorage -> dest.emitPullFrom(env, this)
             else -> TODO("immediate emit mov to $dest")
         }
 
