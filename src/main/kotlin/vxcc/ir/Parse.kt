@@ -50,46 +50,55 @@ private fun <E: Env<E>> parseAndEmitVal(
     callEmitter: (E, IrCall<E>, dest: Owner<E>?) -> Unit,
     env: E,
     v: String,
-    dest: Owner<E>?,
+    dest: ((TypeId, Owner.Flags) -> Owner<E>)?,
 ): Value<E>? {
     if (v.startsWith('%'))
-        return ctx.locals[v]!!.second.storage!!.flatten()
-    val (typeStr, rest) = v.split(' ', limit = 1)
+        return ctx.locals[v.substring(1)]!!.second.storage!!.flatten()
+    val (typeStr, rest) = v.split(' ', limit = 2)
     val type = typeResolver(typeStr)
     return if (rest.startsWith('(')) {
-        if (dest == null) {
+        val destDest = dest?.invoke(typeStr, type)
+        if (destDest == null) {
             val d = env.alloc(type)
             parseAndEmitCall(ctx, typeResolver, callEmitter, env, rest, type, d)
             d.canBeDepromoted = type.copy(use = Env.Use.STORE)
             d.storage!!.flatten()
         } else {
-            parseAndEmitCall(ctx, typeResolver, callEmitter, env, rest, type, dest)
+            parseAndEmitCall(ctx, typeResolver, callEmitter, env, rest, type, destDest)
             null
         }
     } else {
-        if (type.type.float && type.totalWidth == 64)
+        val va = if (type.type.float && type.totalWidth == 64)
             env.immediate(rest.toDouble())
         else if (type.type.float && type.totalWidth == 32)
             env.immediate(rest.toFloat())
         else
             env.immediate(rest.toLong(), type.totalWidth)
+        val destDest = dest?.invoke(typeStr, type)
+        if (destDest == null) {
+            va
+        } else {
+            va.emitMov(env, destDest.storage!!.flatten())
+            null
+        }
     }
 }
 
 fun <E: Env<E>> parseAndEmit(
     lines: Iterable<String>,
-    ctx: IrScope<E>,
+    env: E,
+    ctx: IrScope<E> = IrScope(),
     typeResolver: (TypeId) -> Owner.Flags,
-    callEmitter: (E, IrCall<E>, dest: Owner<E>?) -> Unit,
-    env: E
 ) {
     for (lineIn in lines) {
         val line = lineIn.split('#', limit = 0)[0].trim()
         when (line.firstOrNull() ?: continue) {
             '%' -> {
-                val (name, rest) = line.substring(1).split(' ', limit = 1)
+                val (name, rest) = line.substring(1).split(' ', limit = 2)
                 if (rest.startsWith('=')) {
-                    parseAndEmitVal(ctx, typeResolver, callEmitter, env, rest.substring(2), ctx.locals[name]!!.second)
+                    parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, rest.substring(2)) { typeStr, type ->
+                        ctx.locals.computeIfAbsent(name) { typeStr to env.alloc(type) }.second
+                    }
                 } else if (rest.startsWith("<>")) {
                     val into = rest.substring(3)
                     env.forceIntoReg(ctx.locals[name]!!.second, into)
@@ -98,7 +107,7 @@ fun <E: Env<E>> parseAndEmit(
                 }
             }
             '(' -> {
-                parseAndEmitCall(ctx, typeResolver, callEmitter, env, line.substring(1), null, null)
+                parseAndEmitCall(ctx, typeResolver, ::callEmitter, env, line.substring(1), null, null)
             }
             '~' -> {
                 val name = line.substring(3)
