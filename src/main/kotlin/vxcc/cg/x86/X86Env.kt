@@ -1,6 +1,7 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
+import vxcc.cg.fake.FakeVec
 
 data class X86Env(
     val target: Target
@@ -174,7 +175,8 @@ data class X86Env(
     fun allocReg(reg: BestRegResult, flags: Owner.Flags): Owner<X86Env>? =
         if (reg.used) null
         else Reg.from(reg.index, flags.totalWidth)
-            .reducedStorage(this, flags.totalWidth)
+            .also { it.vecElementWidth = flags.vecElementWidth }
+            .reducedStorage(this, flags)
             .let { r ->
                 val o = Owner(Either.ofB(r), flags)
                 registers[reg.index] = Obj(o)
@@ -184,7 +186,8 @@ data class X86Env(
     private fun forceAllocReg(reg: BestRegResult, flags: Owner.Flags): Owner<X86Env> {
         if (!reg.used) {
             val r = Reg.from(reg.index, flags.totalWidth)
-                .reducedStorage(this, flags.totalWidth)
+                .also { it.vecElementWidth = flags.vecElementWidth }
+                .reducedStorage(this, flags)
             val o = Owner(Either.ofB(r), flags)
             registers[reg.index] = Obj(o)
             return o
@@ -194,9 +197,10 @@ data class X86Env(
         val temp = alloc(owner.flags)
         owner.storage!!.flatten().emitMov(this, temp.storage!!.flatten())
         val new = owner.copy()
+        new.storage!!.flatten().asReg().vecElementWidth = flags.vecElementWidth
         owner.storage = temp.storage
         registers[reg.index] = Obj(new)
-        new.storage = Either.ofB(new.storage!!.flatten().reducedStorage(this, flags.totalWidth))
+        new.storage = Either.ofB(new.storage!!.flatten().reducedStorage(this, flags))
         return new
     }
 
@@ -225,6 +229,9 @@ data class X86Env(
             if (reg != null)
                 return reg
         }
+
+        if (flags.type.vector)
+            return Owner(Either.ofB(FakeVec.create(this, flags)), flags)
 
         TODO("implement stack alloc and static alloc")
     }

@@ -1,7 +1,5 @@
 package vxcc.cg
 
-import vxcc.cg.x86.X86Env
-
-interface MemStorage: Storage<X86Env> {
-    fun offsetBytes(offset: Int): MemStorage
+interface MemStorage<E: Env<E>>: Storage<E> {
+    fun offsetBytes(offset: Int): MemStorage<E>
 }

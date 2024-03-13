@@ -4,7 +4,7 @@ interface Env<T: Env<T>> {
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
     fun alloc(flags: Owner.Flags): Owner<T>
     fun dealloc(owner: Owner<T>)
-    fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage
+    fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage<T>
 
     fun makeRegSize(size: Int): Int
 
@@ -14,11 +14,6 @@ interface Env<T: Env<T>> {
 
     fun makeVecFloat(spFloat: Value<T>, count: Int): Owner<T>
     fun makeVecDouble(dpFloat: Value<T>, count: Int): Owner<T>
-
-    fun shuffleVecX32(vec: Value<T>, vecBitWidth: Int, selection: IntArray, dest: Storage<T>)
-    fun shuffleVecX64(vec: Value<T>, vecBitWidth: Int, selection: IntArray, dest: Storage<T>)
-    fun shuffleVecX16(vec: Value<T>, vecBitWidth: Int, selection: IntArray, dest: Storage<T>)
-    fun shuffleVecX8(vec: Value<T>, vecBitWidth: Int, selection: IntArray, dest: Storage<T>)
 
     val optimal: Optimal<T>
 

@@ -12,6 +12,8 @@ data class Reg(
     val type: Type,
     val localId: Int,
 ): AbstractX86Value(), Storage<X86Env> {
+    var vecElementWidth: Int? = null
+
     fun isGP() =
         this.type == Type.GP || this.type == Type.GP64EX
 
@@ -223,7 +225,7 @@ data class Reg(
     data class View internal constructor(
         val reg: Reg,
         val size: Int,
-    ): AbstractX86Value(), Storage<X86Env> {
+    ): AbstractX86Value(), AbstractScalarValue<X86Env>, Storage<X86Env> {
         init {
             reg.views.add(this)
         }
@@ -257,10 +259,12 @@ data class Reg(
             zext.storage!!.flatten().emitStaticMask(env, mask, dest)
         }
 
-        override fun reduced(env: X86Env, to: Int): Value<X86Env> =
-            reducedStorage(env, to)
+        override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
+            reducedStorage(env, new)
 
-        override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> {
+        override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> {
+            val to = flags.totalWidth
+
             if (to > size)
                 throw Exception("reducedStorage() can not extend size!")
 
@@ -268,7 +272,7 @@ data class Reg(
                 return this
 
             return if (to in arrayOf(8, 16, 32, 64, 128, 256))
-                reg.reducedStorage(env, to)
+                reg.reducedStorage(env, flags)
             else
                 View(reg, to)
         }
@@ -333,11 +337,15 @@ data class Reg(
      * Returns an emittable register that maps to the lower x bits of the reg.
      * x can not be any value.
      */
-    override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> =
-        try {
-            reducedAsReg(to)
-        } catch (_: Exception) {
-            View(this, to)
+    override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> =
+        if (flags.vecElementWidth != null) {
+            env.alloc(flags).storage!!.flatten()
+        } else {
+            try {
+                reducedAsReg(flags.totalWidth)
+            } catch (_: Exception) {
+                View(this, flags.totalWidth)
+            }
         }
 
     @Throws(Exception::class)
@@ -413,8 +421,8 @@ data class Reg(
         }
     }
 
-    override fun reduced(env: X86Env, to: Int): Value<X86Env> =
-        reducedStorage(env, to)
+    override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
+        reducedStorage(env, new)
 
     fun onDealloc(old: Owner<X86Env>) =
         views.forEach { it.recompute() }

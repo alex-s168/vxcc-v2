@@ -7,6 +7,9 @@ interface Value<E: Env<E>> {
      */
     fun emitMov(env: E, dest: Storage<E>)
 
+
+    /* ========================= SCALAR ========================== */
+
     fun emitStaticMask(env: E, mask: Long, dest: Storage<E>)
 
     fun <V: Value<E>> emitMask(env: E, mask: V, dest: Storage<E>)
@@ -16,7 +19,7 @@ interface Value<E: Env<E>> {
      * x can not be any value.
      * returned value only exists as long as parent.
      */
-    fun reduced(env: E, to: Int): Value<E>
+    fun reduced(env: E, new: Owner.Flags): Value<E>
 
     fun <V: Value<E>> emitAdd(env: E, other: V, dest: Storage<E>)
 
@@ -43,4 +46,9 @@ interface Value<E: Env<E>> {
 
     /** dest = * (typeof(dest) *) (this + index * stride) */
     fun <V: Value<E>> emitArrayIndex(env: E, index: V, stride: Long, dest: Storage<E>)
+
+
+    /* ========================= VECTOR ========================== */
+
+    fun emitShuffle(env: E, selection: IntArray, dest: Storage<E>)
 }
