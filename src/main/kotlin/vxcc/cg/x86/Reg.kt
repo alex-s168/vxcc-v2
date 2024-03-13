@@ -450,7 +450,7 @@ data class Reg(
     }
 
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) =
-        binaryOp0(env, other, dest, "add")
+        binaryOp0(env, other, dest, "add") // todo: use lea in some cases!!
 
     override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage<X86Env>) =
         emitShiftLeft(env, env.immediate(by, totalWidth), dest)
@@ -563,7 +563,14 @@ data class Reg(
                         if (reg != dreg)
                             env.emit("mov ${dreg.name}, ${reg.name}")
                         env.emit("cmp $name, ${reg.name}")
-                        env.emit("cmovl $name, ${dreg.name}")
+                        if (env.target.cmov) {
+                            env.emit("cmovl $name, ${dreg.name}")
+                        } else {
+                            val label = env.newLocalLabel()
+                            env.emit("jnl $label")
+                            env.emit("mov $name, ${dreg.name}")
+                            env.switch(label)
+                        }
                     }
                 }
             }
@@ -575,4 +582,31 @@ data class Reg(
 
     override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) =
         binaryOp0(env, mask, dest, "and")
+
+    override fun emitShuffle(env: X86Env, selection: IntArray, dest: Storage<X86Env>) {
+        var sel = 0
+        selection.reversed().forEach { pos ->
+            require(pos <= 0b11)
+            sel = sel or pos
+            sel = sel shl 2
+        }
+        when (totalWidth) {
+            64 -> TODO("mmx shuffle")
+            128 -> when (vecElementWidth) {
+                32 -> {
+                    require(env.target.sse1)
+                    require(selection.size == 4)
+                    dest.useInRegWriteBack(env, Owner.Flags(Env.Use.VECTOR_ARITHM, 128, 32, vxcc.cg.Type.VxUINT), copyInBegin = false) { dreg ->
+                        require(dreg.totalWidth == 128) {
+                            throw Exception("Incompatible destination storage")
+                        }
+                        env.emit("shufps ${dreg.name}, ${this.name}, $sel")
+                    }
+                }
+                null -> throw Exception("cannot perform vector operation on scalar value")
+                else -> TODO("vec shuffle not x32")
+            }
+            else -> TODO("avx shuffle: permute")
+        }
+    }
 }

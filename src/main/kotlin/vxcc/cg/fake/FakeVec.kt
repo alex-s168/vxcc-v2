@@ -3,7 +3,7 @@ package vxcc.cg.fake
 import vxcc.cg.*
 
 open class FakeVec<E: Env<E>> private constructor(
-    val elements: List<Owner<E>>,
+    var elements: List<Owner<E>>,
     val elemWidth: Int,
 ): AbstractVectorValue<E>, Storage<E> {
 
@@ -51,4 +51,16 @@ open class FakeVec<E: Env<E>> private constructor(
 
     override fun emitZero(env: E) =
         elements.forEach { it.storage!!.flatten().emitZero(env) }
+
+    override fun reducedStorage(env: E, flags: Owner.Flags): Storage<E> {
+        require(flags.vecElementWidth != null)
+        return create(env, flags).also {
+            this.emitMov(env, it)
+        }
+    }
+
+    override fun emitShuffle(env: E, selection: IntArray, dest: Storage<E>) {
+        require(selection.size ==elements.size)
+        elements = selection.map { elements[it] }
+    }
 }

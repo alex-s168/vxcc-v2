@@ -2,11 +2,11 @@ package vxcc.cg.x86
 
 import vxcc.cg.*
 
-fun X86Env.memCpy(src: MemStorage, dest: MemStorage, len: Int) {
+fun X86Env.memCpy(src: MemStorage<X86Env>, dest: MemStorage<X86Env>, len: Int) {
     TODO("memcpy()")
 }
 
-fun X86Env.memSet(dest: MemStorage, value: Byte, len: Int) {
+fun X86Env.memSet(dest: MemStorage<X86Env>, value: Byte, len: Int) {
     if (this.optMode == Env.OptMode.SIZE) {
         TODO()
     } else {
@@ -35,7 +35,7 @@ fun X86Env.memSet(dest: MemStorage, value: Byte, len: Int) {
                     (value.toLong() shl 24)
             for (i in 0..left / 4) {
                 this.immediate(valuex4, 32)
-                    .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, 32))
+                    .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, Owner.Flags(Env.Use.SCALAR_AIRTHM, 32, null, Type.UINT)))
             }
             left %= 4
             if (left > 0) {
@@ -48,6 +48,6 @@ fun X86Env.memSet(dest: MemStorage, value: Byte, len: Int) {
     }
 }
 
-fun X86Env.memSet(dest: MemStorage, value: Value<X86Env>, len: Int) {
+fun X86Env.memSet(dest: MemStorage<X86Env>, value: Value<X86Env>, len: Int) {
     TODO("memset(Value)")
 }

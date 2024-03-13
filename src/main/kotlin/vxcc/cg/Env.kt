@@ -15,6 +15,10 @@ interface Env<T: Env<T>> {
     fun makeVecFloat(spFloat: Value<T>, count: Int): Owner<T>
     fun makeVecDouble(dpFloat: Value<T>, count: Int): Owner<T>
 
+    fun newLocalLabel(): String
+
+    fun switch(label: String)
+
     val optimal: Optimal<T>
 
     var optMode: OptMode

@@ -273,7 +273,7 @@ data class X86Env(
 
     // TODO: 16 byte align stack alloc vals (and make sure callconv asserts that sp aligned 16, otherwise align 16)
 
-    override fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage {
+    override fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage<X86Env> {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
         // if speed then align 16 else align idk
@@ -320,118 +320,14 @@ data class X86Env(
         return reg
     }
 
-    override fun shuffleVecX32(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
-        var sel = 0
-        selection.reversed().forEach { pos ->
-            require(pos <= 0b11)
-            sel = sel or pos
-            sel = sel shl 2
-        }
-        when (vecBitWidth) {
-            64 -> TODO("mmx shuffle x32")
-            128 -> {
-                require(target.sse1)
-                require(selection.size == 4)
-                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
-                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
-                    require(dreg.totalWidth == 128) {
-                        throw Exception("Incompatible destination storage")
-                    }
-                    vec.useInGPReg(this) { vreg ->
-                        emit("shufps ${dreg.name}, ${vreg.name}, $sel")
-                    }
-                }
-            }
-            // TODO: NO WORK BECAUSE SHUFPS ONLY QUAD WORD!!!!
-            // USE PERMUTE INSTRUCTIONS (vpermt*, vperm*, ...) (vpermd probably)
-            256 -> {
-                require(target.avx)
-                require(selection.size == 8)
-                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
-                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
-                    require(dreg.totalWidth == 256) {
-                        throw Exception("Incompatible destination storage")
-                    }
-                    vec.useInGPReg(this) { vreg ->
-                        emit("vshufps ${dreg.name}, ${vreg.name}, $sel")
-                    }
-                }
-            }
-            512 -> {
-                require(target.avx512f)
-                require(selection.size == 16)
-                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
-                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
-                    require(dreg.totalWidth == 512) {
-                        throw Exception("Incompatible destination storage")
-                    }
-                    vec.useInGPReg(this) { vreg ->
-                        emit("vshufpds ${dreg.name}, ${vreg.name}, $sel")
-                    }
-                }
-            }
-            else -> throw Exception("wtf")
-        }
+    override fun switch(label: String) {
+        emit("$label:")
     }
 
-    override fun shuffleVecX64(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
-        var sel = 0
-        selection.reversed().forEach { pos ->
-            require(pos <= 0b11)
-            sel = sel or pos
-            sel = sel shl 2
-        }
-        when (vecBitWidth) {
-            64 -> throw Exception("64 bit vector do not support shuffle double!")
-            128 -> {
-                if (target.sse2) {
-                    require(selection.size == 2)
-                    TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
-                    dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
-                        require(dreg.totalWidth == 128) {
-                            throw Exception("Incompatible destination storage")
-                        }
-                        vec.useInGPReg(this) { vreg ->
-                            emit("shufpd ${dreg.name}, ${vreg.name}, $sel")
-                        }
-                    }
-                } else TODO("sse shuffle pd vec x32 no sse2")
-            }
-            256 -> {
-                require(target.avx)
-                require(selection.size == 4)
-                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
-                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
-                    require(dreg.totalWidth == 256) {
-                        throw Exception("Incompatible destination storage")
-                    }
-                    vec.useInGPReg(this) { vreg ->
-                        emit("vshufpd ${dreg.name}, ${vreg.name}, $sel")
-                    }
-                }
-            }
-            512 -> {
-                require(target.avx512f)
-                require(selection.size == 8)
-                TODO("not going to work! add useInVecRegWriteBack and useInVecReg")
-                dest.useInGPRegWriteBack(this, copyInBegin = false) { dreg ->
-                    require(dreg.totalWidth == 512) {
-                        throw Exception("Incompatible destination storage")
-                    }
-                    vec.useInGPReg(this) { vreg ->
-                        emit("vshufpd ${dreg.name}, ${vreg.name}, $sel")
-                    }
-                }
-            }
-            else -> throw Exception("wtf")
-        }
-    }
+    private var lidCounter = 0
 
-    override fun shuffleVecX16(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
-    }
-
-    override fun shuffleVecX8(vec: Value<X86Env>, vecBitWidth: Int, selection: IntArray, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
+    override fun newLocalLabel(): String {
+        val l = lidCounter ++
+        return ".l$l"
     }
 }
