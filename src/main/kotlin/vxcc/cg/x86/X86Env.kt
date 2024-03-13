@@ -397,4 +397,24 @@ data class X86Env(
     override fun emitRet() {
         emit("  ret")
     }
+
+    override fun emitCall(fn: String) {
+        emit("  call $fn")
+    }
+
+    override fun emitJump(block: String) {
+        emit("  jmp $block")
+    }
+
+    override fun <V : Value<X86Env>> emitCall(fn: V) {
+        TODO()
+    }
+
+    override fun <V : Value<X86Env>> emitJumpIf(bool: V, block: String) {
+        TODO()
+    }
+
+    override fun <V : Value<X86Env>> emitJumpIfNot(bool: V, block: String) {
+        TODO()
+    }
 }

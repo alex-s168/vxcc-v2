@@ -2,6 +2,11 @@ package vxcc.cg
 
 interface Env<T: Env<T>> {
     fun emitRet()
+    fun emitCall(fn: String)
+    fun <V: Value<T>> emitCall(fn: V)
+    fun emitJump(block: String)
+    fun <V: Value<T>> emitJumpIf(bool: V, block: String)
+    fun <V: Value<T>> emitJumpIfNot(bool: V, block: String)
 
     fun forceIntoReg(owner: Owner<T>, name: String)
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
