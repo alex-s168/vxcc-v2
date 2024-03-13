@@ -12,6 +12,8 @@ data class Reg(
     val type: Type,
     val localId: Int,
 ): AbstractX86Value(), Storage<X86Env> {
+    var vecElementWidth: Int? = null
+
     fun isGP() =
         this.type == Type.GP || this.type == Type.GP64EX
 
@@ -223,7 +225,7 @@ data class Reg(
     data class View internal constructor(
         val reg: Reg,
         val size: Int,
-    ): AbstractX86Value(), Storage<X86Env> {
+    ): AbstractX86Value(), AbstractScalarValue<X86Env>, Storage<X86Env> {
         init {
             reg.views.add(this)
         }
@@ -257,10 +259,12 @@ data class Reg(
             zext.storage!!.flatten().emitStaticMask(env, mask, dest)
         }
 
-        override fun reduced(env: X86Env, to: Int): Value<X86Env> =
-            reducedStorage(env, to)
+        override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
+            reducedStorage(env, new)
 
-        override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> {
+        override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> {
+            val to = flags.totalWidth
+
             if (to > size)
                 throw Exception("reducedStorage() can not extend size!")
 
@@ -268,7 +272,7 @@ data class Reg(
                 return this
 
             return if (to in arrayOf(8, 16, 32, 64, 128, 256))
-                reg.reducedStorage(env, to)
+                reg.reducedStorage(env, flags)
             else
                 View(reg, to)
         }
@@ -333,11 +337,15 @@ data class Reg(
      * Returns an emittable register that maps to the lower x bits of the reg.
      * x can not be any value.
      */
-    override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> =
-        try {
-            reducedAsReg(to)
-        } catch (_: Exception) {
-            View(this, to)
+    override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> =
+        if (flags.vecElementWidth != null) {
+            env.alloc(flags).storage!!.flatten()
+        } else {
+            try {
+                reducedAsReg(flags.totalWidth)
+            } catch (_: Exception) {
+                View(this, flags.totalWidth)
+            }
         }
 
     @Throws(Exception::class)
@@ -413,8 +421,8 @@ data class Reg(
         }
     }
 
-    override fun reduced(env: X86Env, to: Int): Value<X86Env> =
-        reducedStorage(env, to)
+    override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
+        reducedStorage(env, new)
 
     fun onDealloc(old: Owner<X86Env>) =
         views.forEach { it.recompute() }
@@ -442,7 +450,7 @@ data class Reg(
     }
 
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) =
-        binaryOp0(env, other, dest, "add")
+        binaryOp0(env, other, dest, "add") // todo: use lea in some cases!!
 
     override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage<X86Env>) =
         emitShiftLeft(env, env.immediate(by, totalWidth), dest)
@@ -555,7 +563,14 @@ data class Reg(
                         if (reg != dreg)
                             env.emit("mov ${dreg.name}, ${reg.name}")
                         env.emit("cmp $name, ${reg.name}")
-                        env.emit("cmovl $name, ${dreg.name}")
+                        if (env.target.cmov) {
+                            env.emit("cmovl $name, ${dreg.name}")
+                        } else {
+                            val label = env.newLocalLabel()
+                            env.emit("jnl $label")
+                            env.emit("mov $name, ${dreg.name}")
+                            env.switch(label)
+                        }
                     }
                 }
             }
@@ -567,4 +582,31 @@ data class Reg(
 
     override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) =
         binaryOp0(env, mask, dest, "and")
+
+    override fun emitShuffle(env: X86Env, selection: IntArray, dest: Storage<X86Env>) {
+        var sel = 0
+        selection.reversed().forEach { pos ->
+            require(pos <= 0b11)
+            sel = sel or pos
+            sel = sel shl 2
+        }
+        when (totalWidth) {
+            64 -> TODO("mmx shuffle")
+            128 -> when (vecElementWidth) {
+                32 -> {
+                    require(env.target.sse1)
+                    require(selection.size == 4)
+                    dest.useInRegWriteBack(env, Owner.Flags(Env.Use.VECTOR_ARITHM, 128, 32, vxcc.cg.Type.VxUINT), copyInBegin = false) { dreg ->
+                        require(dreg.totalWidth == 128) {
+                            throw Exception("Incompatible destination storage")
+                        }
+                        env.emit("shufps ${dreg.name}, ${this.name}, $sel")
+                    }
+                }
+                null -> throw Exception("cannot perform vector operation on scalar value")
+                else -> TODO("vec shuffle not x32")
+            }
+            else -> TODO("avx shuffle: permute")
+        }
+    }
 }

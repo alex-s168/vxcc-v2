@@ -24,14 +24,14 @@ fun Value<X86Env>.getWidth(): Int =
         else -> TODO("getWidth() for type")
     }
 
-/**
- * SHOULD NOT BE USED IN MOST CASES!
- */
 fun Value<X86Env>.useInGPReg(env: X86Env, block: (Reg) -> Unit) =
+    useInReg(env, Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT), block)
+
+fun Value<X86Env>.useInReg(env: X86Env, flags: Owner.Flags, block: (Reg) -> Unit) =
     if (this is Reg) {
         block(this)
     } else {
-        val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT))
+        val reg = env.forceAllocReg(flags)
         val regSto = reg.storage!!.flatten()
         emitMov(env, regSto)
         block(regSto.asReg())
@@ -61,11 +61,14 @@ fun Owner<X86Env>.moveIntoReg(env: X86Env) {
  * ((if the storage is not a reg itself))
  */
 fun Storage<X86Env>.useInGPRegWriteBack(env: X86Env, copyInBegin: Boolean = true, block: (Reg) -> Unit) =
+    useInRegWriteBack(env, Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT), copyInBegin, block)
+
+fun Storage<X86Env>.useInRegWriteBack(env: X86Env, flags: Owner.Flags, copyInBegin: Boolean = true, block: (Reg) -> Unit) =
     if (this is Reg) {
         block(this)
     }
     else {
-        val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT))
+        val reg = env.forceAllocReg(flags)
         val regSto = reg.storage!!.flatten()
         if (copyInBegin)
             this.emitMov(env, regSto)

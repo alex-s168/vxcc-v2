@@ -37,7 +37,7 @@ class Target {
         }
     var sce = false
     var cx8 = false
-    var cmov = false
+    var cmov = true
     var fxsr = false
     var osfxsr = false
         set(value) {

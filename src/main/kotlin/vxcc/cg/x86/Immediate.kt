@@ -1,5 +1,7 @@
 package vxcc.cg.x86
 
+import vxcc.cg.AbstractScalarValue
+import vxcc.cg.Owner
 import vxcc.cg.Storage
 import vxcc.cg.Value
 import kotlin.math.max
@@ -10,7 +12,7 @@ import kotlin.math.pow
 data class Immediate(
     val value: Long,
     val width: Int,
-): AbstractX86Value() {
+): AbstractX86Value(), AbstractScalarValue<X86Env> {
     override fun emitMov(env: X86Env, dest: Storage<X86Env>) =
         when (dest) {
             is Reg -> when (dest.type) {
@@ -35,8 +37,8 @@ data class Immediate(
     override fun emitStaticMask(env: X86Env, mask: Long, dest: Storage<X86Env>) =
         Immediate(value and mask, width).emitMov(env, dest)
 
-    override fun reduced(env: X86Env, to: Int): Value<X86Env> =
-        Immediate(value and (2.0).pow(to).toLong() - 1, to)
+    override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
+        Immediate(value and (2.0).pow(new.totalWidth).toLong() - 1, new.totalWidth)
 
     override fun <V: Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) =
         when (other) {

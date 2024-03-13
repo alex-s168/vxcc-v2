@@ -3,11 +3,14 @@ package vxcc.cg.x86
 import vxcc.cg.Storage
 import vxcc.cg.Value
 import vxcc.cg.MemStorage
+import vxcc.cg.Owner
 
 class StackSlot(
     val spOff: Long,
     val width: Int,
-): AbstractX86Value(), MemStorage {
+): AbstractX86Value(), MemStorage<X86Env> {
+    var vecElemWidth: Int? = null
+
     private fun spRegName(env: X86Env) =
         if (env.target.amd64_v1) "rsp"
         else "esp"
@@ -18,11 +21,11 @@ class StackSlot(
         else
             "${spRegName(env)} + $spOff"
 
-    override fun reducedStorage(env: X86Env, to: Int): Storage<X86Env> =
-        StackSlot(spOff, to)
+    override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> =
+        StackSlot(spOff, flags.totalWidth).also { it.vecElemWidth = vecElemWidth }
 
-    override fun offsetBytes(offset: Int): MemStorage =
-        StackSlot(spOff + offset, width)
+    override fun offsetBytes(offset: Int): MemStorage<X86Env> =
+        StackSlot(spOff + offset, width).also { it.vecElemWidth = vecElemWidth }
 
     override fun emitZero(env: X86Env) {
         env.memSet(this, 0, width)
@@ -105,8 +108,8 @@ class StackSlot(
         TODO("Not yet implemented")
     }
 
-    override fun reduced(env: X86Env, to: Int): Value<X86Env> =
-        StackSlot(spOff, width)
+    override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
+        StackSlot(spOff, new.totalWidth).also { it.vecElemWidth = vecElemWidth }
 
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
@@ -142,5 +145,10 @@ class StackSlot(
 
     override fun <V : Value<X86Env>> emitExclusiveOr(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
+    }
+
+    override fun emitShuffle(env: X86Env, selection: IntArray, dest: Storage<X86Env>) {
+        require(this.vecElemWidth != null)
+        TODO("use in vec reg")
     }
 }

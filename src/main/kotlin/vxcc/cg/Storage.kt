@@ -6,7 +6,7 @@ interface Storage<E: Env<E>>: Value<E> {
      * x can not be any value.
      * returned value only exists as long as parent.
      */
-    fun reducedStorage(env: E, to: Int): Storage<E>
+    fun reducedStorage(env: E, flags: Owner.Flags): Storage<E>
 
     /**
      * Zeros out the storage.
