@@ -1,6 +1,7 @@
 package vxcc.ir
 
 import vxcc.cg.*
+import kotlin.math.exp
 
 /*
 Example code:
@@ -140,10 +141,11 @@ fun <E: Env<E>> ir(
     ctx: IrGlobalScope<E> = IrGlobalScope(),
 ) {
     while (lines.hasNext()) {
-        var line = lines.next().trim()
+        var line = lines.next().split('#', limit = 2)[0].trim()
         if (line.isEmpty()) continue
-        if (line.startsWith("fn")) {
-            val fnName = line.substring(3)
+        if (line.startsWith("fn") || line.startsWith("export fn")) {
+            val export = line[0] == 'e'
+            val fnName = line.substringAfter("fn ")
             env.switch(fnName)
             val fnLines = mutableListOf<String>()
             while (true) {
@@ -154,6 +156,12 @@ fun <E: Env<E>> ir(
             }
             ctx.functions.add(fnName)
             parseAndEmit(fnLines, env, IrLocalScope()) { ctx.types[it]!! }
+            env.emitRet()
+            if (export)
+                env.export(fnName)
+        } else if (line.startsWith("extern fn")) {
+            val name = line.substringAfter("extern fn ")
+            env.import(name)
         } else if (line.startsWith("type")) {
             val (name, def) = line.substringAfter("type ").split(" = ", limit = 2)
             assert(name !in ctx.types)

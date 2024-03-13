@@ -13,11 +13,13 @@ fun main() {
     val code = """
         type int = :int w:32
         
-        fn main
+        export fn main
             %0'edi = int 10
             %1 = int 20
             %0 = int (add %0 %1)
             ~ %1
+            %1 = int 1
+            %0 = int (add %0 %1)
             %0 <> eax
         end
     """

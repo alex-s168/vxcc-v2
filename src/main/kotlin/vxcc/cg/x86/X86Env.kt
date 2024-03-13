@@ -393,4 +393,8 @@ data class X86Env(
         require(value is Immediate)
         return value.value
     }
+
+    override fun emitRet() {
+        emit("  ret")
+    }
 }

@@ -12,6 +12,7 @@ internal fun <E: Env<E>> callEmitter(env: E, call: IrCall<E>, dest: Owner<E>?) {
         "imax" -> call.args[0].emitSignedMax(env, call.args[1], dest!!.storage!!.flatten())
         "index" -> call.args[0].emitArrayIndex(env, call.args[1], env.backToImm(call.args[2]), dest!!.storage!!.flatten())
         "offset" -> call.args[0].emitArrayOffset(env, call.args[1], env.backToImm(call.args[2]), dest!!.storage!!.flatten())
+        "ret" -> env.emitRet()
         else -> throw Exception("No builtin function ${call.fn}!")
     }
 }
