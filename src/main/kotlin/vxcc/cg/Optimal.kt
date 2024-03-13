@@ -18,4 +18,7 @@ interface Optimal<T: Env<T>> {
 
     /** fastest int type if speed opt, otherwise smallest int type */
     val int: Owner.Flags
+
+    /** pointer data type of the target */
+    val ptr: Owner.Flags
 }

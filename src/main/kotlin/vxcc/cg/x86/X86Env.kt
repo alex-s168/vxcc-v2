@@ -1,6 +1,7 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
+import vxcc.cg.fake.FakeBitSlice
 import vxcc.cg.fake.FakeVec
 
 data class X86Env(
@@ -63,6 +64,8 @@ data class X86Env(
 
         /** fastest int type if speed opt, otherwise smallest int type */
         override val int = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+
+        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else if (target.amd64_v1) 64 else 16, null, Type.UINT)
     }
 
     internal var fpuUse: Boolean = false
@@ -236,21 +239,21 @@ data class X86Env(
         TODO("implement stack alloc and static alloc")
     }
 
-    override fun dealloc(owner: Owner<X86Env>) =
-        when (val ownerSto = owner.storage!!.flatten()) {
+    override fun dealloc(owner: Owner<X86Env>) {
+        val ownerSto = owner.storage!!.flatten()
+        ownerSto.onDestroy(this)
+        when (ownerSto) {
             is Reg -> {
                 val reg = ownerSto.asReg()
                 val id = reg.asIndex()
-                reg.onDealloc(owner)
                 if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") }.v == null)
                     throw Exception("Attempting to deallocate register twice! Double allocated?")
                 if (id.type == Reg.Type.MM)
                     mmxUse = false
                 registers[id] = Obj(null)
             }
-
-            else -> TODO("dealloc")
         }
+    }
 
     override fun makeRegSize(size: Int): Int =
         if (size <= 8) 8
@@ -261,6 +264,9 @@ data class X86Env(
         else if (size <= 256) 256
         else if (size <= 512) 512
         else size
+
+    override fun nextUpNative(flags: Owner.Flags): Owner.Flags =
+        flags.copy(totalWidth = makeRegSize(flags.totalWidth))
 
     override fun immediate(value: Long, width: Int): Immediate =
         Immediate(value, width)
@@ -330,4 +336,38 @@ data class X86Env(
         val l = lidCounter ++
         return ".l$l"
     }
+
+
+    override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<X86Env> {
+        TODO()
+    }
+
+    override fun <V: Value<X86Env>> addrToMemStorage(addr: V, flags: Owner.Flags): MemStorage<X86Env> {
+        TODO()
+    }
+
+    override fun <V: Value<X86Env>> flagsOf(value: V): Owner.Flags =
+        when (value) {
+            is StorageWithOwner<*> -> value.owner.flags
+            is Reg -> Owner.Flags(
+                if (value.vecElementWidth == null) Env.Use.SCALAR_AIRTHM else Env.Use.VECTOR_ARITHM,
+                value.totalWidth,
+                value.vecElementWidth,
+                if (value.vecElementWidth == null) Type.UINT else Type.VxUINT,
+            )
+            is FakeVec<*> -> Owner.Flags(
+                Env.Use.VECTOR_ARITHM,
+                value.getWidth(),
+                value.elemWidth,
+                Type.VxUINT,
+            )
+            is FakeBitSlice<*> -> value.flags
+            is StackSlot -> Owner.Flags(
+                if (value.vecElemWidth == null) Env.Use.SCALAR_AIRTHM else Env.Use.VECTOR_ARITHM,
+                value.width,
+                value.vecElemWidth,
+                if (value.vecElemWidth == null) Type.UINT else Type.VxUINT,
+            )
+            else -> TODO("flagsOf $value")
+        }
 }

@@ -7,6 +7,12 @@ interface Value<E: Env<E>> {
      */
     fun emitMov(env: E, dest: Storage<E>)
 
+    /**
+     * Should be called by the env when deallocating for example
+     */
+    fun onDestroy(env: E) =
+        Unit
+
 
     /* ========================= SCALAR ========================== */
 

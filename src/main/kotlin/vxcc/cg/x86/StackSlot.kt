@@ -1,9 +1,6 @@
 package vxcc.cg.x86
 
-import vxcc.cg.Storage
-import vxcc.cg.Value
-import vxcc.cg.MemStorage
-import vxcc.cg.Owner
+import vxcc.cg.*
 
 class StackSlot(
     val spOff: Long,
@@ -77,25 +74,13 @@ class StackSlot(
                     }
                 }
             }
-
-            is Reg.View -> {
-                if (dest.size != width)
-                    throw Exception("Can not move into register (view) with different size that source! use reduced()")
-
-                if (dest.reg.type == Reg.Type.MM && dest.size == 32) {
-                    env.emit("movd ${dest.reg.name}, ${sizeStr(32)} [${spIndexStr(env)}]")
-                } else {
-                    TODO("mov stack slot into reg view")
-                }
-            }
-
+            is PullingStorage -> dest.emitPullFrom(env, this)
             is MemStorage -> {
                 if (dest.getWidth() != width)
                     throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
 
                 env.memCpy(this, dest, width)
             }
-
             else -> TODO("stack slot move to $dest")
         }
     }

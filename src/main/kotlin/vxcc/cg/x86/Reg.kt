@@ -1,6 +1,7 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
+import vxcc.cg.fake.FakeBitSlice
 import kotlin.math.pow
 
 // TODO: check destination size when operating
@@ -220,119 +221,6 @@ data class Reg(
         }
     }
 
-    private val views = mutableListOf<View>()
-
-    data class View internal constructor(
-        val reg: Reg,
-        val size: Int,
-    ): AbstractX86Value(), AbstractScalarValue<X86Env>, Storage<X86Env> {
-        init {
-            reg.views.add(this)
-        }
-
-        val zextMap = mutableMapOf<X86Env, Owner<X86Env>>()
-
-        fun recompute() {
-            zextMap.forEach { (k, v) ->
-                k.dealloc(v)
-            }
-            zextMap.clear()
-        }
-
-        fun zextCompute(env: X86Env): Owner<X86Env> {
-            val regSize = env.makeRegSize(size)
-            val temp = env.forceAllocReg(Owner.Flags(Env.Use.SCALAR_AIRTHM, regSize, null, vxcc.cg.Type.INT))
-            val tempSto = temp.storage!!.flatten()
-            reg.reducedAsReg(regSize).emitMov(env, tempSto)
-            tempSto.emitStaticMask(env, (2.0).pow(size).toLong() - 1, tempSto)
-            temp.canBeDepromoted = Owner.Flags(Env.Use.STORE, regSize, null, vxcc.cg.Type.INT)
-            return temp
-        }
-
-        override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitMov(env, dest)
-        }
-
-        override fun emitStaticMask(env: X86Env, mask: Long, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitStaticMask(env, mask, dest)
-        }
-
-        override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
-            reducedStorage(env, new)
-
-        override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> {
-            val to = flags.totalWidth
-
-            if (to > size)
-                throw Exception("reducedStorage() can not extend size!")
-
-            if (to == size)
-                return this
-
-            return if (to in arrayOf(8, 16, 32, 64, 128, 256))
-                reg.reducedStorage(env, flags)
-            else
-                View(reg, to)
-        }
-
-        override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitStaticShiftLeft(env, by, dest)
-        }
-
-        override fun <V : Value<X86Env>> emitShiftLeft(env: X86Env, other: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitShiftLeft(env, other, dest)
-        }
-
-        override fun <V : Value<X86Env>> emitShiftRight(env: X86Env, other: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitShiftRight(env, other, dest)
-        }
-
-        override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitStaticShiftRight(env, by, dest)
-        }
-
-        override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitMul(env, other, dest)
-        }
-
-        override fun <V : Value<X86Env>> emitSignedMul(env: X86Env, other: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitSignedMul(env, other, dest)
-        }
-
-        override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitAdd(env, other, dest)
-        }
-
-        override fun emitZero(env: X86Env) {
-            reg.emitStaticMask(env, (1L shl size).inv() and (1L shl reg.totalWidth), reg)
-            recompute()
-        }
-
-        override fun <V : Value<X86Env>> emitExclusiveOr(env: X86Env, other: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitExclusiveOr(env, other, dest)
-        }
-
-        override fun <V : Value<X86Env>> emitSignedMax(env: X86Env, other: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitSignedMax(env, other, dest)
-        }
-
-        override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) {
-            val zext = zextMap.computeIfAbsent(env, ::zextCompute)
-            zext.storage!!.flatten().emitMask(env, mask, dest)
-        }
-    }
-
     /**
      * Returns an emittable register that maps to the lower x bits of the reg.
      * x can not be any value.
@@ -344,7 +232,7 @@ data class Reg(
             try {
                 reducedAsReg(flags.totalWidth)
             } catch (_: Exception) {
-                View(this, flags.totalWidth)
+                FakeBitSlice(this, flags)
             }
         }
 
@@ -389,24 +277,15 @@ data class Reg(
                 }
             }
 
-            is View -> {
-                if (dest.size > totalWidth)
-                    throw Exception("Cannot move into destination with bigger size; use emitSignExtend() or emitZeroExtend() instead!")
+            is PullingStorage -> (dest).emitPullFrom(env, this)
 
-                // TODO: call recompute() on view afterwards
-                when (type) {
-                    Type.MM -> {
-                        if (dest.reg.type in arrayOf(Type.XMM, Type.XMM64)) {
-                            val dst = dest.reg.reducedAsReg(128)
-                            env.emit("movq2dq ${dst.name}, $name")
-                        } else {
-                            TODO("mov from mmx to reg view $dest")
-                        }
-                    }
-
-                    else -> TODO("mov from $this to reg view $dest")
-                }
+            /*
+            TODO
+            if (this.type == Type.MM && dest.reg.type in arrayOf(Type.XMM, Type.XMM64)) {
+                val dst = dest.reg.reducedAsReg(128)
+                env.emit("movq2dq ${dst.name}, $name")
             }
+             */
 
             else -> TODO("mov from $this to $dest")
         }
@@ -423,9 +302,6 @@ data class Reg(
 
     override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
         reducedStorage(env, new)
-
-    fun onDealloc(old: Owner<X86Env>) =
-        views.forEach { it.recompute() }
 
     private fun binaryOp0(env: X86Env, other: Value<X86Env>, dest: Storage<X86Env>, op: String) {
         if (!this.isGP())

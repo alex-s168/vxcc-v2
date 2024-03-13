@@ -1,6 +1,8 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
+import vxcc.cg.fake.FakeBitSlice
+import vxcc.cg.fake.FakeVec
 
 fun Value<X86Env>.asReg() =
     this as Reg
@@ -18,9 +20,10 @@ fun sizeStr(width: Int) =
 fun Value<X86Env>.getWidth(): Int =
     when (this) {
         is Reg -> this.totalWidth
-        is Reg.View -> this.size
+        is FakeVec -> this.elements.size * this.elemWidth
         is Immediate -> this.width
         is StackSlot -> this.width
+        is FakeBitSlice -> this.flags.totalWidth
         else -> TODO("getWidth() for type")
     }
 
