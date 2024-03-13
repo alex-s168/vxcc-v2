@@ -213,6 +213,16 @@ data class X86Env(
     override fun forceAllocReg(flags: Owner.Flags, name: String): Owner<X86Env> =
         forceAllocReg(flags, Reg.fromName(name).asIndex())
 
+    override fun forceIntoReg(owner: Owner<X86Env>, name: String) {
+        val sto = owner.storage!!.flatten()
+        if (sto is Reg && sto.name == name)
+            return
+        val new = forceAllocReg(owner.flags, name)
+        sto.emitMov(this, new.storage!!.flatten())
+        dealloc(owner)
+        owner.storage = new.storage
+    }
+
     fun forceAllocRegRecommend(flags: Owner.Flags, recommend: Reg.Index): Owner<X86Env> =
         allocReg(getRegByIndex(recommend), flags) ?: forceAllocReg(flags)
 

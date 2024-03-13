@@ -5,7 +5,6 @@ import vxcc.cg.fake.FakeBitSlice
 import kotlin.math.pow
 
 // TODO: check destination size when operating
-// TODO: the idiot designers of amd64 decided that changing e*x zeros out the top of r*x...
 
 data class Reg(
     val name: String,
@@ -71,13 +70,13 @@ data class Reg(
 
             if (name.startsWith('r')) {
                 if (name.endsWith('b'))
-                    return fromName(name.dropLast(1)).reducedAsReg(8)
+                    return fromName(name.dropLast(1)).reducedAsRegForce(8)
 
                 if (name.endsWith('w'))
-                    return fromName(name.dropLast(1)).reducedAsReg(16)
+                    return fromName(name.dropLast(1)).reducedAsRegForce(16)
 
                 if (name.endsWith('d'))
-                    return fromName(name.dropLast(1)).reducedAsReg(32)
+                    return fromName(name.dropLast(1)).reducedAsRegForce(32)
 
                 val substr = name.substring(1)
                 return substr.toIntOrNull()?.let {
@@ -230,15 +229,22 @@ data class Reg(
             env.alloc(flags).storage!!.flatten()
         } else {
             try {
-                reducedAsReg(flags.totalWidth)
+                reducedAsReg(env, flags.totalWidth)
             } catch (_: Exception) {
                 FakeBitSlice(this, flags)
             }
         }
 
     @Throws(Exception::class)
-    fun reducedAsReg(to: Int): Reg =
+    fun reducedAsRegForce(to: Int): Reg =
         from(asIndex(), to)
+
+    @Throws(Exception::class)
+    fun reducedAsReg(env: X86Env, to: Int): Reg =
+        if (env.target.amd64_v1 && to == 32 && totalWidth == 64)
+            throw Exception("Can't reduce 64-bit gp to 32-bit gp because of how amd64 works")
+        else
+            reducedAsRegForce(to)
 
     /**
      * Move into destination.
@@ -258,7 +264,7 @@ data class Reg(
                     Type.GP64EX -> when (dest.type) {
                         Type.GP,
                         Type.GP64EX -> {
-                            val src = reducedAsReg(dest.totalWidth)
+                            val src = reducedAsReg(env, dest.totalWidth)
                             env.emit("mov ${dest.name}, ${src.name}")
                         }
 
@@ -372,7 +378,7 @@ data class Reg(
             Type.GP,
             Type.GP64EX ->
                 if (totalWidth == 64)
-                    reducedAsReg(32).let { env.emit("xor ${it.name}, ${it.name}") }
+                    reducedAsRegForce(32).let { env.emit("xor ${it.name}, ${it.name}") }
                 else
                     env.emit("xor $name, $name")
 

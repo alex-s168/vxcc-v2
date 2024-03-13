@@ -1,6 +1,7 @@
 package vxcc.cg
 
 interface Env<T: Env<T>> {
+    fun forceIntoReg(owner: Owner<T>, name: String)
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
     fun alloc(flags: Owner.Flags): Owner<T>
     fun dealloc(owner: Owner<T>)
