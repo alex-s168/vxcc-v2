@@ -20,6 +20,8 @@ fun main() {
             ~ %1
             %1 = int 1
             %0 = int (add %0 %1)
+            ~ %1
+            %1 @mem int 123
             %0 <> eax
         end
     """

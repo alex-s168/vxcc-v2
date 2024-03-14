@@ -12,7 +12,7 @@ class StackSlot(
         if (env.target.amd64_v1) "rsp"
         else "esp"
 
-    private fun spIndexStr(env: X86Env) =
+    internal fun spIndexStr(env: X86Env) =
         if (spOff < 0)
             "${spRegName(env)} - $spOff"
         else

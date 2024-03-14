@@ -355,7 +355,6 @@ data class X86Env(
         return ".l$l"
     }
 
-
     override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<X86Env> {
         TODO()
     }
@@ -412,9 +411,13 @@ data class X86Env(
         }
     }
 
+    // TODO: vectors
     private fun <V : Value<X86Env>> emitTest(va: V) {
-        va.useInGPReg(this) {
-            emit("  test ${it.name}, ${it.name}")
+        when (va) {
+            is StackSlot -> emit("  cmp ${sizeStr(va.width)} [${va.spIndexStr(this)}], 0")
+            else -> va.useInGPReg(this) {
+                emit("  test ${it.name}, ${it.name}")
+            }
         }
     }
 
@@ -429,6 +432,20 @@ data class X86Env(
     }
 
     private fun <A: Value<X86Env>, B: Value<X86Env>> emitCmp(a: A, b: B) {
+        when (a) {
+            is StackSlot -> b.useInGPReg(this) {
+                emit("  cmp ${sizeStr(a.width)} [${a.spIndexStr(this)}], ${it.name}")
+            }
+            else -> a.useInGPReg(this) { ar ->
+                when (b) {
+                    is StackSlot -> emit("  cmp ${sizeStr(b.width)} [${b.spIndexStr(this)}], ${ar.name}")
+                    else -> b.useInGPReg(this) { br ->
+                        emit("  cmp ${ar.name}, ${br.name}")
+                    }
+                }
+            }
+        }
+
         a.useInGPReg(this) { aReg ->
             b.useInGPReg(this) { bReg ->
                 emit("  cmp ${aReg.name}, ${bReg.name}")

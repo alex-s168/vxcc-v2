@@ -28,13 +28,13 @@ data class IrLocalScope<E: Env<E>>(
 internal data class IrCall<E: Env<E>>(
     val type: Owner.Flags?,
     val fn: String,
-    val args: List<Value<E>>
+    val args: List<Either<Value<E>, String>>
 )
 
 private fun <E: Env<E>> parseAndEmitCall(
     ctx: IrLocalScope<E>,
     typeResolver: (TypeId) -> Owner.Flags,
-    callEmitter: (E, IrCall<E>, dest: Owner<E>?) -> Unit,
+    callEmitter: (IrLocalScope<E>, E, IrCall<E>, dest: Owner<E>?) -> Unit,
     env: E,
     callIn: String,
     type: Owner.Flags?,
@@ -45,16 +45,19 @@ private fun <E: Env<E>> parseAndEmitCall(
     val call = callIn.substring(1).dropLast(1).split(' ')
     val fn = call[0]
     val args = call.drop(1).map {
-        parseAndEmitVal(ctx, typeResolver, callEmitter, env, it, null)!!
+        if (it.startsWith(':'))
+            Either.ofB(it.substring(1))
+        else
+            Either.ofA<Value<E>, String>(parseAndEmitVal(ctx, typeResolver, callEmitter, env, it, null)!!)
     }
     val irCall = IrCall(type, fn, args)
-    callEmitter(env, irCall, dest)
+    callEmitter(ctx, env, irCall, dest)
 }
 
 private fun <E: Env<E>> parseAndEmitVal(
     ctx: IrLocalScope<E>,
     typeResolver: (TypeId) -> Owner.Flags,
-    callEmitter: (E, IrCall<E>, dest: Owner<E>?) -> Unit,
+    callEmitter: (IrLocalScope<E>, E, IrCall<E>, dest: Owner<E>?) -> Unit,
     env: E,
     v: String,
     dest: ((TypeId, Owner.Flags) -> Owner<E>)?,
@@ -118,8 +121,31 @@ private fun <E: Env<E>> parseAndEmit(
                     }
                 } else if (rest.startsWith("<>")) {
                     val into = rest.substring(3)
-                    env.forceIntoReg(ctx.locals[name]!!.second, into)
-                } else {
+                    val loc = ctx.locals[name]!!.second
+                    env.forceIntoReg(loc, into)
+                } else if (rest.startsWith('@')) {
+                    if (rest.startsWith("@mem")) {
+                        val (typeStr, where) = rest.substringAfter("@mem ").split(' ', limit = 2)
+                        val type = typeResolver(typeStr)
+                        val whereInt = where.toULongOrNull()
+                        if (whereInt != null) {
+                            ctx.locals[name] = typeStr to Owner(
+                                Either.ofB(env.addrToMemStorage(whereInt, type)),
+                                type
+                            )
+                        } else if (where.startsWith('*')) {
+                            val addr = parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, where.substring(1), null)
+                            ctx.locals[name] = typeStr to Owner(
+                                Either.ofB(env.addrToMemStorage(addr!!, type)),
+                                type
+                            )
+                        } else {
+                            TODO("data symbols")
+                        }
+                    } else {
+                        throw Exception()
+                    }
+                }  else {
                     throw Exception("Unexpected symbol in line: $line")
                 }
             }
