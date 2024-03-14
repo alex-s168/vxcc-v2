@@ -121,43 +121,73 @@ class X86MemStorage(
         reducedStorage(env, new)
 
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) {
-        if (dest != this)
-            TODO()
-        when (other) {
-            is Immediate -> env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${other.value}")
-            else -> other.useInGPReg(env) {
-                env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${it.name}")
+        if (dest != this) {
+            emitMov(env, dest)
+            dest.emitAdd(env, other, dest)
+        } else {
+            when (other) {
+                is Immediate -> if (other.value == 1L)
+                        env.emit("  inc ${sizeStr(flags.totalWidth)} [$emit]")
+                    else
+                        env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${other.value}")
+                else -> other.useInGPReg(env) {
+                    env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${it.name}")
+                }
             }
         }
     }
 
     override fun <V : Value<X86Env>> emitSub(env: X86Env, other: V, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
+        if (dest != this) {
+            emitMov(env, dest)
+            dest.emitAdd(env, other, dest)
+        } else {
+            when (other) {
+                is Immediate -> if (other.value == 1L)
+                    env.emit("  dec ${sizeStr(flags.totalWidth)} [$emit]")
+                else
+                    env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${other.value}")
+                else -> other.useInGPReg(env) {
+                    env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${it.name}")
+                }
+            }
+        }
     }
 
-    override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
+    private fun <V : Value<X86Env>> binaryOp(env: X86Env, other: V, dest: Storage<X86Env>, asm: String, elsefn: () -> Unit) {
+        if (dest != this) {
+            emitMov(env, dest)
+            elsefn()
+        } else {
+            when (other) {
+                is Immediate -> env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${other.value}")
+                else -> other.useInGPReg(env) {
+                    env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${it.name}")
+                }
+            }
+        }
     }
 
-    override fun <V : Value<X86Env>> emitSignedMul(env: X86Env, other: V, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) =
+        binaryOp(env, other, dest, "mul") { dest.emitMul(env, other, dest) }
 
-    override fun <V : Value<X86Env>> emitShiftLeft(env: X86Env, other: V, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<X86Env>> emitSignedMul(env: X86Env, other: V, dest: Storage<X86Env>) =
+        emitMul(env, other, dest)
 
-    override fun <V : Value<X86Env>> emitShiftRight(env: X86Env, other: V, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<X86Env>> emitShiftLeft(env: X86Env, other: V, dest: Storage<X86Env>) =
+        binaryOp(env, other, dest, "shl") { dest.emitShiftLeft(env, other, dest) }
 
-    override fun <V : Value<X86Env>> emitExclusiveOr(env: X86Env, other: V, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<X86Env>> emitShiftRight(env: X86Env, other: V, dest: Storage<X86Env>) =
+        binaryOp(env, other, dest, "shr") { dest.emitShiftRight(env, other, dest) }
+
+    override fun <V : Value<X86Env>> emitExclusiveOr(env: X86Env, other: V, dest: Storage<X86Env>) =
+        binaryOp(env, other, dest, "xor") { dest.emitExclusiveOr(env, other, dest) }
 
     override fun emitShuffle(env: X86Env, selection: IntArray, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }
+
+    // TODO: overwrite static functions
 
     override fun emitZero(env: X86Env) {
         env.memSet(this, 0, flags.totalWidth / 8)
@@ -167,5 +197,5 @@ class X86MemStorage(
         X86MemStorage("$emitBase + ${this.offset + offset}", alignRef + offset, flags, emitBase, this.offset + offset)
 
     override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> =
-        X86MemStorage(emit, alignRef, flags, emitBase, offset) // TODO: think about weird sizes
+        X86MemStorage(emit, alignRef, flags, emitBase, offset) // TODO: consider weird sizes
 }

@@ -1,3 +1,4 @@
+import vxcc.cg.Env
 import vxcc.cg.x86.Target
 import vxcc.cg.x86.X86Env
 import vxcc.ir.ir
@@ -9,6 +10,7 @@ fun main() {
 
     val env = X86Env(target)
     env.regAlloc = false
+    env.optMode = Env.OptMode.SIZE
 
     val code = """
         type int = :int w:32
