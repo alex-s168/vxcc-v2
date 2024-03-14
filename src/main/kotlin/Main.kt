@@ -14,19 +14,14 @@ fun main() {
         
         export fn _start
             %0 = int 0
-            %1 = int 1
-            %2 = int 100
         :loop
-            %0 = int (add %0 %1)
-            (brl :loop %0 %2)
+            %0 = int [add, %0, int 1]
+            [brl, :loop, %0, int 100]
             ~ %0
-            
-            ~ %2
             
             %0 @mem int 50
             %0 = int 1
-            %0 = %1
-            ~ %1
+            ~ %0
             
             %syscall'eax = int 1
             %a0'ebx = int 0
@@ -34,7 +29,7 @@ fun main() {
         end
     """
 
-    ir(code.lines().iterator(), env)
+    ir(code.lines().iterator(), env, verbose = true)
 
     env.finish()
 }

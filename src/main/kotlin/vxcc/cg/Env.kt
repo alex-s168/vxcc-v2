@@ -53,6 +53,8 @@ interface Env<T: Env<T>> {
     fun <V: Value<T>> memSet(dest: MemStorage<T>, value: V, len: Int)
     fun <A: Value<T>, B: Value<T>> memSet(dest: MemStorage<T>, value: A, len: B)
 
+    fun comment(comment: String)
+
     fun finish()
 
     val optimal: Optimal<T>

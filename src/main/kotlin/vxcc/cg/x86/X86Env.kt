@@ -463,8 +463,11 @@ data class X86Env(
                 emit("  cmp ${sizeStr(a.flags.totalWidth)} [${a.emit}], ${it.name}")
             }
             else -> a.useInGPReg(this) { ar ->
-                b.useInGPReg(this) { br ->
-                    emit("  cmp ${ar.name}, ${br.name}")
+                when (b) {
+                    is Immediate -> emit("  cmp ${ar.name}, ${b.value}")
+                    else -> b.useInGPReg(this) { br ->
+                        emit("  cmp ${ar.name}, ${br.name}")
+                    }
                 }
             }
         }
@@ -502,6 +505,7 @@ data class X86Env(
 
     override fun inlineAsm(inst: String, vararg code: Either<String, Pair<String, Owner<X86Env>>>) {
         val str = StringBuilder()
+        str.append("  ")
         str.append(inst)
         str.append(' ')
         code.forEach { e ->
@@ -578,5 +582,9 @@ data class X86Env(
                 // unrolled size optimized
             }
         }
+    }
+
+    override fun comment(comment: String) {
+        emit("; $comment")
     }
 }

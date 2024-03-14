@@ -331,11 +331,19 @@ data class Reg(
         }
     }
 
+    // TODO: use lea in some cases
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) =
-        binaryOp0(env, other, dest, "add") // todo: use lea in some cases!!
+        if (other is Immediate && other.value == 1L)
+            env.emit("  inc $name")
+        else
+            binaryOp0(env, other, dest, "add")
 
+    // TODO: use lea in some cases
     override fun <V : Value<X86Env>> emitSub(env: X86Env, other: V, dest: Storage<X86Env>) =
-        binaryOp0(env, other, dest, "sub") // todo: use lea in some cases!!
+        if (other is Immediate && other.value == 1L)
+            env.emit("  dec $name")
+        else
+            binaryOp0(env, other, dest, "sub")
 
     override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) =
         if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax

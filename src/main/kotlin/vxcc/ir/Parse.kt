@@ -40,11 +40,12 @@ private fun <E: Env<E>> parseAndEmitCall(
     type: Owner.Flags?,
     dest: Owner<E>?,
 ) {
-    require(callIn.first() == '(')
-    require(callIn.last() == ')')
-    val call = callIn.substring(1).dropLast(1).split(' ')
+    require(callIn.first() == '[')
+    require(callIn.last() == ']')
+    val call = callIn.substring(1).dropLast(1).split(',')
     val fn = call[0]
-    val args = call.drop(1).map {
+    val args = call.drop(1).map { itIn ->
+        val it = itIn.trim()
         if (it.startsWith(':'))
             Either.ofB(".${it.substring(1)}")
         else
@@ -75,7 +76,7 @@ private fun <E: Env<E>> parseAndEmitVal(
     }
     val (typeStr, rest) = v.split(' ', limit = 2)
     val type = typeResolver(typeStr)
-    return if (rest.startsWith('(')) {
+    return if (rest.startsWith('[')) {
         val destDest = dest?.invoke(typeStr, type)
         if (destDest == null) {
             val d = env.alloc(type)
@@ -107,11 +108,16 @@ private fun <E: Env<E>> parseAndEmit(
     lines: Iterable<String>,
     env: E,
     ctx: IrLocalScope<E>,
+    verbose: Boolean,
     typeResolver: (TypeId) -> Owner.Flags,
 ) {
     for (lineIn in lines) {
         val line = lineIn.split('#', limit = 0)[0].trim()
-        when (line.firstOrNull() ?: continue) {
+        if (line.isEmpty())
+            continue
+        if (verbose)
+            env.comment(line)
+        when (line.first()) {
             ':' -> {
                 val bn = ".${line.substring(1)}"
                 env.switch(bn)
@@ -167,7 +173,7 @@ private fun <E: Env<E>> parseAndEmit(
                     throw Exception("Unexpected symbol in line: $line")
                 }
             }
-            '(' -> {
+            '[' -> {
                 parseAndEmitCall(ctx, typeResolver, ::callEmitter, env, line, null, null)
             }
             '~' -> {
@@ -196,6 +202,7 @@ fun <E: Env<E>> ir(
     lines: Iterator<String>,
     env: E,
     ctx: IrGlobalScope<E> = IrGlobalScope(),
+    verbose: Boolean = false,
 ) {
     while (lines.hasNext()) {
         var line = lines.next().split('#', limit = 2)[0].trim()
@@ -212,7 +219,7 @@ fun <E: Env<E>> ir(
                 fnLines += line
             }
             ctx.functions.add(fnName)
-            parseAndEmit(fnLines, env, IrLocalScope()) { ctx.types[it]!! }
+            parseAndEmit(fnLines, env, IrLocalScope(), verbose) { ctx.types[it]!! }
             env.emitRet()
             if (export)
                 env.export(fnName)
