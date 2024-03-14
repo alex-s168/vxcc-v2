@@ -9,7 +9,9 @@ import vxcc.cg.fake.FakeVec
 class X86MemStorage(
     val emit: String,
     val alignRef: Long,
-    val flags: Owner.Flags
+    val flags: Owner.Flags,
+    val emitBase: String = emit,
+    val offset: Int = 0,
 ): AbstractX86Value,
     MemStorage<X86Env>,
     DefFunOpImpl<X86Env>,
@@ -114,9 +116,8 @@ class X86MemStorage(
         TODO("Not yet implemented")
     }
 
-    override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> {
-        TODO("Not yet implemented")
-    }
+    override fun reduced(env: X86Env, new: Owner.Flags): Value<X86Env> =
+        reducedStorage(env, new)
 
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
@@ -147,14 +148,12 @@ class X86MemStorage(
     }
 
     override fun emitZero(env: X86Env) {
-        TODO("Not yet implemented")
+        env.memSet(this, 0, flags.totalWidth / 8)
     }
 
-    override fun offsetBytes(offset: Int): MemStorage<X86Env> {
-        TODO("Not yet implemented")
-    }
+    override fun offsetBytes(offset: Int): MemStorage<X86Env> =
+        X86MemStorage("$emitBase + ${this.offset + offset}", alignRef + offset, flags, emitBase, this.offset + offset)
 
-    override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> {
-        TODO("Not yet implemented")
-    }
+    override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> =
+        X86MemStorage(emit, alignRef, flags, emitBase, offset)
 }

@@ -22,7 +22,7 @@ data class X86Env(
             emit("bits 16")
     }
 
-    val registers = mutableMapOf<Reg.Index, Obj<Owner<X86Env>?>>()
+    private val registers = mutableMapOf<Reg.Index, Obj<Owner<X86Env>?>>()
 
     init {
         for (i in 0..5)
@@ -77,13 +77,13 @@ data class X86Env(
         override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else if (target.amd64_v1) 64 else 16, null, Type.INT)
     }
 
-    internal var fpuUse: Boolean = false
+    private var fpuUse: Boolean = false
 
-    internal var mmxUse: Boolean = false
+    private var mmxUse: Boolean = false
         set(value) {
-            field = value
-            if (!value)
+            if (!value && field)
                 emit("  emms")
+            field = value
         }
 
     data class BestRegResult(
@@ -255,7 +255,9 @@ data class X86Env(
         if (flags.type.vector)
             return Owner(Either.ofB(FakeVec.create(this, flags)), flags)
 
-        TODO("implement stack alloc and static alloc")
+        // TODO: implement stack alloc
+
+        return Owner(Either.ofB(staticAlloc(flags.totalWidth, null, flags)), flags)
     }
 
     override fun dealloc(owner: Owner<X86Env>) {
@@ -298,13 +300,30 @@ data class X86Env(
 
     // TODO: 16 byte align stack alloc vals (and make sure callconv asserts that sp aligned 16, otherwise align 16)
 
-    override fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage<X86Env> {
+    private val staticAllocs = mutableListOf<Pair<Int, ByteArray>>()
+
+    override fun staticAlloc(widthBytes: Int, init: ByteArray?, flags: Owner.Flags): MemStorage<X86Env> {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
-        // if speed then align 16 else align idk
-        // ymm wants align 32
-        // zmm wants align 64
-        TODO()
+        val align = if (optMode == Env.OptMode.SPEED) {
+            if (target.avx512f) 64
+            else if (target.avx2) 32
+            else if (target.sse1) 16
+            else if (target.mmx || target.amd64_v1) 8
+            else if (target.is32) 4
+            else 2
+        } else 2
+        staticAllocs += align to arr
+        return X86MemStorage("d_a_t_a__${staticAllocs.size - 1}", align.toLong(), flags)
+    }
+
+    override fun finish() {
+        staticAllocs.forEachIndexed { index, (align, data) ->
+            emit("align $align")
+            emit("d_a_t_a__$index:")
+            emitBytes(data)
+        }
+        staticAllocs.clear()
     }
 
     override fun makeVecFloat(spFloat: Value<X86Env>, count: Int): Owner<X86Env> {

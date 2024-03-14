@@ -18,7 +18,7 @@ interface Env<T: Env<T>> {
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
     fun alloc(flags: Owner.Flags): Owner<T>
     fun dealloc(owner: Owner<T>)
-    fun staticAlloc(widthBytes: Int, init: ByteArray?): MemStorage<T>
+    fun staticAlloc(widthBytes: Int, init: ByteArray?, flags: Owner.Flags): MemStorage<T>
 
     fun makeRegSize(size: Int): Int
     fun nextUpNative(flags: Owner.Flags): Owner.Flags
@@ -45,6 +45,8 @@ interface Env<T: Env<T>> {
     fun <V: Value<T>> backToImm(value: V): Long
 
     fun inlineAsm(inst: String, vararg code: Either<String, Pair<String, Owner<T>>>)
+
+    fun finish()
 
     val optimal: Optimal<T>
 

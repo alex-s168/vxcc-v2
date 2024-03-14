@@ -19,7 +19,7 @@ fun X86Env.memSet(dest: MemStorage<X86Env>, value: Byte, len: Int) {
             if (value.toInt() == 0) {
                 regSto.emitZero(this)
             } else {
-                val valueLoc = this.staticAlloc(8, ByteArray(8) { value })
+                val valueLoc = this.staticAlloc(8, ByteArray(8) { value }, Owner.Flags(Env.Use.STORE, 64, null, Type.INT))
                 valueLoc.emitMov(this, regSto)
             }
             val first = len / 8

@@ -35,4 +35,6 @@ fun main() {
     """
 
     ir(code.lines().iterator(), env)
+
+    env.finish()
 }
