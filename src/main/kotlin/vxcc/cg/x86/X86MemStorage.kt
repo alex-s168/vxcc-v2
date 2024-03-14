@@ -123,6 +123,10 @@ class X86MemStorage(
         TODO("Not yet implemented")
     }
 
+    override fun <V : Value<X86Env>> emitSub(env: X86Env, other: V, dest: Storage<X86Env>) {
+        TODO("Not yet implemented")
+    }
+
     override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) {
         TODO("Not yet implemented")
     }

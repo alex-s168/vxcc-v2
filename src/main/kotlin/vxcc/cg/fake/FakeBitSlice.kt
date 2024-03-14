@@ -96,4 +96,9 @@ open class FakeBitSlice<E: Env<E>>(
         val zext = zeroExtended.computeIfAbsent(env, ::compute)
         zext.storage!!.flatten().emitExclusiveOr(env, other, dest)
     }
+
+    override fun <V : Value<E>> emitSub(env: E, other: V, dest: Storage<E>) {
+        val zext = zeroExtended.computeIfAbsent(env, ::compute)
+        zext.storage!!.flatten().emitSub(env, other, dest)
+    }
 }

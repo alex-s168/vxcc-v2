@@ -1,12 +1,13 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
+import vxcc.cg.fake.DefMemOpImpl
 import vxcc.cg.fake.FakeBitSlice
 import vxcc.cg.fake.FakeVec
 
 data class X86Env(
     val target: Target
-): Env<X86Env> {
+): DefMemOpImpl<X86Env> {
     fun emit(a: String) =
         println(a)
 
@@ -536,4 +537,46 @@ data class X86Env(
 
     override fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<X86Env> =
         X86MemStorage(label, if (label.startsWith('.')) 1 else 16, flags)
+
+    override fun memSet(dest: MemStorage<X86Env>, value: Byte, len: Int) {
+        if (this.optMode == Env.OptMode.SIZE) {
+            TODO()
+        } else {
+            if (this.target.sse1) {
+                TODO()
+            } else if (this.target.mmx) {
+                // TODO: check align
+                val reg = this.forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, 64, 8, Type.VxINT))
+                val regSto = reg.storage!!.flatten()
+                if (value.toInt() == 0) {
+                    regSto.emitZero(this)
+                } else {
+                    val valueLoc = this.staticAlloc(8, ByteArray(8) { value }, Owner.Flags(Env.Use.STORE, 64, null, Type.INT))
+                    valueLoc.emitMov(this, regSto)
+                }
+                val first = len / 8
+                for (i in 0.. first) {
+                    val off = i * 8
+                    regSto.emitMov(this, dest.offsetBytes(off).reducedStorage(this, Owner.Flags(Env.Use.STORE, 64, null, Type.INT)))
+                }
+                this.dealloc(reg)
+                var left = len % 8
+                val valuex4 = value.toLong() or
+                        (value.toLong() shl 8) or
+                        (value.toLong() shl 16) or
+                        (value.toLong() shl 24)
+                for (i in 0..left / 4) {
+                    this.immediate(valuex4, 32)
+                        .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, Owner.Flags(Env.Use.SCALAR_AIRTHM, 32, null, Type.INT)))
+                }
+                left %= 4
+                if (left > 0) {
+                    TODO("unpadded memset (too lazy)")
+                }
+            } else {
+                TODO()
+                // unrolled size optimized
+            }
+        }
+    }
 }

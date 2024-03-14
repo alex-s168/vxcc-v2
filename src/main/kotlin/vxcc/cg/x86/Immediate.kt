@@ -91,4 +91,16 @@ data class Immediate(
 
     override fun <V: Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) =
         mask.emitMask(env, this, dest)
+
+    override fun <V : Value<X86Env>> emitSub(env: X86Env, other: V, dest: Storage<X86Env>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun emitStaticAdd(env: X86Env, other: ULong, dest: Storage<X86Env>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun emitStaticSub(env: X86Env, other: ULong, dest: Storage<X86Env>) {
+        TODO("Not yet implemented")
+    }
 }

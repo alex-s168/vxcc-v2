@@ -1,7 +1,14 @@
 package vxcc.cg
 
-interface AbstractVectorValue<E: Env<E>>: Value<E> {
+import vxcc.cg.fake.DefStaticLogicOpImpl
+import vxcc.cg.fake.DefStaticOpImpl
+
+interface AbstractVectorValue<E: Env<E>>: Value<E>, DefStaticOpImpl<E> {
     override fun <V : Value<E>> emitAdd(env: E, other: V, dest: Storage<E>) {
+        throw Exception("Can not perform scalar operation on vector value!")
+    }
+
+    override fun <V : Value<E>> emitSub(env: E, other: V, dest: Storage<E>) {
         throw Exception("Can not perform scalar operation on vector value!")
     }
 
@@ -42,22 +49,6 @@ interface AbstractVectorValue<E: Env<E>>: Value<E> {
     }
 
     override fun <V : Value<E>> emitSignedMul(env: E, other: V, dest: Storage<E>) {
-        throw Exception("Can not perform scalar operation on vector value!")
-    }
-
-    override fun emitStaticMask(env: E, mask: Long, dest: Storage<E>) {
-        throw Exception("Can not perform scalar operation on vector value!")
-    }
-
-    override fun emitStaticMul(env: E, by: ULong, dest: Storage<E>) {
-        throw Exception("Can not perform scalar operation on vector value!")
-    }
-
-    override fun emitStaticShiftLeft(env: E, by: Long, dest: Storage<E>) {
-        throw Exception("Can not perform scalar operation on vector value!")
-    }
-
-    override fun emitStaticShiftRight(env: E, by: Long, dest: Storage<E>) {
         throw Exception("Can not perform scalar operation on vector value!")
     }
 }

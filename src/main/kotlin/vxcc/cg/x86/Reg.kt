@@ -1,8 +1,8 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
+import vxcc.cg.fake.DefStaticLogicOpImpl
 import vxcc.cg.fake.FakeBitSlice
-import kotlin.math.pow
 
 // TODO: check destination size when operating
 
@@ -11,7 +11,7 @@ data class Reg(
     val totalWidth: Int,
     val type: Type,
     val localId: Int,
-): AbstractX86Value, Storage<X86Env> {
+): AbstractX86Value, Storage<X86Env>, DefStaticLogicOpImpl<X86Env> {
     var vecElementWidth: Int? = null
 
     fun isGP() =
@@ -334,11 +334,8 @@ data class Reg(
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) =
         binaryOp0(env, other, dest, "add") // todo: use lea in some cases!!
 
-    override fun emitStaticShiftLeft(env: X86Env, by: Long, dest: Storage<X86Env>) =
-        emitShiftLeft(env, env.immediate(by, totalWidth), dest)
-
-    override fun emitStaticShiftRight(env: X86Env, by: Long, dest: Storage<X86Env>) =
-        emitShiftRight(env, env.immediate(by, totalWidth), dest)
+    override fun <V : Value<X86Env>> emitSub(env: X86Env, other: V, dest: Storage<X86Env>) =
+        binaryOp0(env, other, dest, "sub") // todo: use lea in some cases!!
 
     override fun <V : Value<X86Env>> emitMul(env: X86Env, other: V, dest: Storage<X86Env>) =
         if (this.isGP() && this.localId == 0 && other is Reg) // al, ax, eax, rax

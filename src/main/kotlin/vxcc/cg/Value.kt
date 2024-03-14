@@ -29,6 +29,12 @@ interface Value<E: Env<E>> {
 
     fun <V: Value<E>> emitAdd(env: E, other: V, dest: Storage<E>)
 
+    fun emitStaticAdd(env: E, other: ULong, dest: Storage<E>)
+
+    fun <V: Value<E>> emitSub(env: E, other: V, dest: Storage<E>)
+
+    fun emitStaticSub(env: E, other: ULong, dest: Storage<E>)
+
     fun <V: Value<E>> emitMul(env: E, other: V, dest: Storage<E>)
 
     fun <V: Value<E>> emitSignedMul(env: E, other: V, dest: Storage<E>)

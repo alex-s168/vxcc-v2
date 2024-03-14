@@ -46,6 +46,13 @@ interface Env<T: Env<T>> {
 
     fun inlineAsm(inst: String, vararg code: Either<String, Pair<String, Owner<T>>>)
 
+    fun memCpy(src: MemStorage<T>, dest: MemStorage<T>, len: Int)
+    fun <V: Value<T>> memCpy(src: MemStorage<T>, dest: MemStorage<T>, len: V)
+    fun memSet(dest: MemStorage<T>, value: Byte, len: Int)
+    fun <V: Value<T>> memSet(dest: MemStorage<T>, value: Byte, len: V)
+    fun <V: Value<T>> memSet(dest: MemStorage<T>, value: V, len: Int)
+    fun <A: Value<T>, B: Value<T>> memSet(dest: MemStorage<T>, value: A, len: B)
+
     fun finish()
 
     val optimal: Optimal<T>
