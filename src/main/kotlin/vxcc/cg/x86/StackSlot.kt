@@ -5,7 +5,7 @@ import vxcc.cg.*
 class StackSlot(
     val spOff: Long,
     val width: Int,
-): AbstractX86Value(), MemStorage<X86Env> {
+): AbstractX86Value, MemStorage<X86Env> {
     var vecElemWidth: Int? = null
 
     private fun spRegName(env: X86Env) =

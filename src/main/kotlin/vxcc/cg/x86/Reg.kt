@@ -11,7 +11,7 @@ data class Reg(
     val totalWidth: Int,
     val type: Type,
     val localId: Int,
-): AbstractX86Value(), Storage<X86Env> {
+): AbstractX86Value, Storage<X86Env> {
     var vecElementWidth: Int? = null
 
     fun isGP() =

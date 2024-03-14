@@ -9,7 +9,7 @@ import kotlin.math.pow
 data class Immediate(
     val value: Long,
     val width: Int,
-): AbstractX86Value(), AbstractScalarValue<X86Env> {
+): AbstractX86Value, AbstractScalarValue<X86Env> {
     override fun emitMov(env: X86Env, dest: Storage<X86Env>) =
         when (dest) {
             is Reg -> when (dest.type) {

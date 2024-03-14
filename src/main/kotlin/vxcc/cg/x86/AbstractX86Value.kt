@@ -2,7 +2,7 @@ package vxcc.cg.x86
 
 import vxcc.cg.*
 
-abstract class AbstractX86Value: Value<X86Env> {
+interface AbstractX86Value: Value<X86Env> {
     /** dest = this + index * stride */
     override fun <V: Value<X86Env>> emitArrayOffset(env: X86Env, index: V, stride: Long, dest: Storage<X86Env>) =
         X86ArrIndex(

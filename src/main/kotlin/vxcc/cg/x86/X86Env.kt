@@ -355,9 +355,8 @@ data class X86Env(
         return ".l$l"
     }
 
-    override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<X86Env> {
-        TODO()
-    }
+    override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<X86Env> =
+        AbsMemStorage(addr, flags)
 
     override fun <V: Value<X86Env>> addrToMemStorage(addr: V, flags: Owner.Flags): MemStorage<X86Env> {
         TODO()
