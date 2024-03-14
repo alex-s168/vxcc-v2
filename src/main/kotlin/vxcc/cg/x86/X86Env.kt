@@ -13,6 +13,15 @@ data class X86Env(
     fun emitBytes(bytes: ByteArray) =
         emit("  db ${bytes.joinToString { "0x${it.toString(16)}" }}")
 
+    init {
+        if (target.amd64_v1)
+            emit("bits 64")
+        else if (target.is32)
+            emit("bits 32")
+        else
+            emit("bits 16")
+    }
+
     val registers = mutableMapOf<Reg.Index, Obj<Owner<X86Env>?>>()
 
     init {
@@ -444,12 +453,6 @@ data class X86Env(
                 b.useInGPReg(this) { br ->
                     emit("  cmp ${ar.name}, ${br.name}")
                 }
-            }
-        }
-
-        a.useInGPReg(this) { aReg ->
-            b.useInGPReg(this) { bReg ->
-                emit("  cmp ${aReg.name}, ${bReg.name}")
             }
         }
     }

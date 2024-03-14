@@ -283,7 +283,7 @@ data class Reg(
                 }
             }
 
-            is PullingStorage -> (dest).emitPullFrom(env, this)
+            is PullingStorage -> dest.emitPullFrom(env, this)
 
             /*
             TODO

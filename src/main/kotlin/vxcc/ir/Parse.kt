@@ -62,8 +62,17 @@ private fun <E: Env<E>> parseAndEmitVal(
     v: String,
     dest: ((TypeId, Owner.Flags) -> Owner<E>)?,
 ): Value<E>? {
-    if (v.startsWith('%'))
-        return ctx.locals[v.substring(1)]!!.second.storage!!.flatten()
+    if (v.startsWith('%')) {
+        val va = ctx.locals[v.substring(1)]!!
+        val destDest = dest?.invoke(va.first, typeResolver(va.first))
+        val vaSto = va.second.storage!!.flatten()
+        return if (destDest == null) {
+            vaSto
+        } else {
+            vaSto.emitMov(env, destDest.storage!!.flatten())
+            null
+        }
+    }
     val (typeStr, rest) = v.split(' ', limit = 2)
     val type = typeResolver(typeStr)
     return if (rest.startsWith('(')) {

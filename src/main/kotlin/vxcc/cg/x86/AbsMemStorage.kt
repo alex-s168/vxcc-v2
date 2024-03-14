@@ -3,6 +3,8 @@ package vxcc.cg.x86
 import vxcc.cg.*
 import vxcc.cg.fake.DefFunOpImpl
 import vxcc.cg.fake.DefStaticLogicOpImpl
+import vxcc.cg.fake.FakeBitSlice
+import vxcc.cg.fake.FakeVec
 
 class AbsMemStorage(
     val addr: ULong,
@@ -16,12 +18,52 @@ class AbsMemStorage(
     override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
         when (dest) {
             is PullingStorage<X86Env> -> dest.emitPullFrom(env, this)
+            is Reg -> {
+                if (flags.type.vector) {
+                    TODO()
+                } else {
+                    require(dest.isGP())
+                    require(dest.totalWidth == flags.totalWidth)
+                    env.emit("  mov ${dest.name}, ${sizeStr(flags.totalWidth)} [$addr]")
+                }
+            }
             else -> TODO()
         }
     }
 
     override fun emitPullFrom(env: X86Env, from: Value<X86Env>) {
-        TODO()
+        when (from) {
+            is Immediate -> {
+                require(flags.totalWidth == from.width)
+                require(!flags.type.vector)
+                env.emit("  mov ${sizeStr(flags.totalWidth)} [$addr], ${from.value}")
+            }
+            is Reg -> {
+                if (flags.type.vector) {
+                    TODO()
+                } else {
+                    require(from.isGP())
+                    require(from.totalWidth == flags.totalWidth)
+                    env.emit("  mov ${sizeStr(flags.totalWidth)} [$addr], ${from.name}")
+                }
+            }
+            is FakeVec -> {
+                require(flags.type.vector)
+                TODO()
+            }
+            is FakeBitSlice -> {
+                require(!flags.type.vector)
+                require(from.flags.totalWidth == flags.totalWidth)
+                val next = env.makeRegSize(flags.totalWidth)
+                from.zeroExtended
+                    .computeIfAbsent(env, from::compute)
+                    .storage!!.flatten()
+                    .useInGPReg(env) { src ->
+                    env.emit("  mov ${sizeStr(next)} [$addr], ${src.name}")
+                }
+            }
+            else -> TODO()
+        }
     }
 
     override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) {

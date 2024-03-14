@@ -20,8 +20,13 @@ fun main() {
             %0 = int (add %0 %1)
             (brl :loop %0 %2)
             ~ %0
-            ~ %1
+            
             ~ %2
+            
+            %0 @mem int 50
+            %0 = int 1
+            %0 = %1
+            ~ %1
             
             %syscall'eax = int 1
             %a0'ebx = int 0
