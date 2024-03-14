@@ -5,6 +5,7 @@ import vxcc.cg.fake.DefFunOpImpl
 import vxcc.cg.fake.DefStaticLogicOpImpl
 import vxcc.cg.fake.FakeBitSlice
 import vxcc.cg.fake.FakeVec
+import kotlin.math.ceil
 
 class X86MemStorage(
     val emit: String,
@@ -120,7 +121,14 @@ class X86MemStorage(
         reducedStorage(env, new)
 
     override fun <V : Value<X86Env>> emitAdd(env: X86Env, other: V, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
+        if (dest != this)
+            TODO()
+        when (other) {
+            is Immediate -> env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${other.value}")
+            else -> other.useInGPReg(env) {
+                env.emit("  add ${sizeStr(flags.totalWidth)} [$emit], ${it.name}")
+            }
+        }
     }
 
     override fun <V : Value<X86Env>> emitSub(env: X86Env, other: V, dest: Storage<X86Env>) {
@@ -159,5 +167,5 @@ class X86MemStorage(
         X86MemStorage("$emitBase + ${this.offset + offset}", alignRef + offset, flags, emitBase, this.offset + offset)
 
     override fun reducedStorage(env: X86Env, flags: Owner.Flags): Storage<X86Env> =
-        X86MemStorage(emit, alignRef, flags, emitBase, offset)
+        X86MemStorage(emit, alignRef, flags, emitBase, offset) // TODO: think about weird sizes
 }

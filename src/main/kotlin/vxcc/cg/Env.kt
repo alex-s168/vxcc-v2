@@ -19,6 +19,7 @@ interface Env<T: Env<T>> {
     fun alloc(flags: Owner.Flags): Owner<T>
     fun dealloc(owner: Owner<T>)
     fun staticAlloc(widthBytes: Int, init: ByteArray?, flags: Owner.Flags): MemStorage<T>
+    fun staticLabeledData(name: String, widthBytes: Int, init: ByteArray?)
 
     fun makeRegSize(size: Int): Int
     fun nextUpNative(flags: Owner.Flags): Owner.Flags

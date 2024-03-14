@@ -247,6 +247,8 @@ data class X86Env(
             ?: throw Exception("No compatible register for $flags")
 
     override fun alloc(flags: Owner.Flags): Owner<X86Env> {
+        // TODO: consider weird sized ints
+
         if (regAlloc) {
             val reg = allocReg(flags)
             if (reg != null)
@@ -258,7 +260,7 @@ data class X86Env(
 
         // TODO: implement stack alloc
 
-        return Owner(Either.ofB(staticAlloc(flags.totalWidth, null, flags)), flags)
+        return Owner(Either.ofB(staticAlloc(flags.totalWidth / 8, null, flags)), flags)
     }
 
     override fun dealloc(owner: Owner<X86Env>) {
@@ -301,9 +303,15 @@ data class X86Env(
 
     // TODO: 16 byte align stack alloc vals (and make sure callconv asserts that sp aligned 16, otherwise align 16)
 
-    private val staticAllocs = mutableListOf<Pair<Int, ByteArray>>()
+    private val staticAllocs = mutableListOf<Triple<String, Int, ByteArray>>()
 
     override fun staticAlloc(widthBytes: Int, init: ByteArray?, flags: Owner.Flags): MemStorage<X86Env> {
+        val label = "_d_a_t_a__${staticAllocs.size}"
+        staticLabeledData(label, widthBytes, init)
+        return X86MemStorage(label, staticAllocs.last().second.toLong(), flags)
+    }
+
+    override fun staticLabeledData(name: String, widthBytes: Int, init: ByteArray?) {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
         val align = if (optMode == Env.OptMode.SPEED) {
@@ -314,14 +322,14 @@ data class X86Env(
             else if (target.is32) 4
             else 2
         } else 2
-        staticAllocs += align to arr
-        return X86MemStorage("d_a_t_a__${staticAllocs.size - 1}", align.toLong(), flags)
+        staticAllocs += Triple(name, align, arr)
     }
 
     override fun finish() {
-        staticAllocs.forEachIndexed { index, (align, data) ->
+        emit("section .data")
+        staticAllocs.forEach { (label, align, data) ->
             emit("align $align")
-            emit("d_a_t_a__$index:")
+            emit("$label:")
             emitBytes(data)
         }
         staticAllocs.clear()

@@ -21,6 +21,7 @@ data class IrGlobalScope<E: Env<E>>(
 )
 
 data class IrLocalScope<E: Env<E>>(
+    val parent: IrGlobalScope<E>,
     val locals: MutableMap<String, Pair<TypeId, Owner<E>>> = mutableMapOf(),
     val blocks: MutableList<String> = mutableListOf()
 )
@@ -30,6 +31,38 @@ internal data class IrCall<E: Env<E>>(
     val fn: String,
     val args: List<Either<Value<E>, String>>
 )
+
+private fun String.splitWithNesting(
+    delim: Char,
+    nestUp: Char,
+    nestDown: Char,
+    dest: MutableList<String> = mutableListOf()
+): MutableList<String> {
+    val last = StringBuilder()
+    val iter = iterator()
+    var nesting = 0
+    while (iter.hasNext()) {
+        val c = iter.next()
+        if (nesting == 0 && c == delim) {
+            dest.add(last.toString())
+            last.clear()
+        } else if (c == nestUp) {
+            nesting ++
+            last.append(c)
+        } else if (c == nestDown) {
+            if (nesting == 0)
+                throw Exception("Unmatched $nestDown")
+            nesting --
+            last.append(c)
+        } else {
+            last.append(c)
+        }
+    }
+    dest.add(last.toString())
+    if (nesting != 0)
+        throw Exception("Unmatched $nestUp")
+    return dest
+}
 
 private fun <E: Env<E>> parseAndEmitCall(
     ctx: IrLocalScope<E>,
@@ -42,11 +75,14 @@ private fun <E: Env<E>> parseAndEmitCall(
 ) {
     require(callIn.first() == '[')
     require(callIn.last() == ']')
-    val call = callIn.substring(1).dropLast(1).split(',')
+
+    val call = callIn.substring(1).dropLast(1).splitWithNesting(',', '[', ']')
     val fn = call[0]
     val args = call.drop(1).map { itIn ->
         val it = itIn.trim()
-        if (it.startsWith(':'))
+        if (it.startsWith("::"))
+            Either.ofB(it.substring(2))
+        else if (it.startsWith(':'))
             Either.ofB(".${it.substring(1)}")
         else
             Either.ofA<Value<E>, String>(parseAndEmitVal(ctx, typeResolver, callEmitter, env, it, null)!!)
@@ -64,7 +100,8 @@ private fun <E: Env<E>> parseAndEmitVal(
     dest: ((TypeId, Owner.Flags) -> Owner<E>)?,
 ): Value<E>? {
     if (v.startsWith('%')) {
-        val va = ctx.locals[v.substring(1)]!!
+        val name = v.substring(1)
+        val va = ctx.locals[name]!!
         val destDest = dest?.invoke(va.first, typeResolver(va.first))
         val vaSto = va.second.storage!!.flatten()
         return if (destDest == null) {
@@ -129,7 +166,10 @@ private fun <E: Env<E>> parseAndEmit(
                     parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, rest.substring(2)) { typeStr, type ->
                         if (name.contains('\'')) {
                             val (rname, rdest) = name.split('\'')
-                            ctx.locals.computeIfAbsent(rname) { typeStr to env.forceAllocReg(type, rdest) }.second
+                            if (rname == "")
+                                env.forceAllocReg(type, rdest).also { it.shouldBeDestroyed = true }
+                            else
+                                ctx.locals.computeIfAbsent(rname) { typeStr to env.forceAllocReg(type, rdest) }.second
                         } else {
                             ctx.locals.computeIfAbsent(name) { typeStr to env.alloc(type) }.second
                         }
@@ -164,7 +204,16 @@ private fun <E: Env<E>> parseAndEmit(
                                 type
                             )
                         } else {
-                            TODO("data symbols")
+                            val label = if (where.startsWith("::"))
+                                where.substring(2)
+                            else if (where.startsWith(':'))
+                                where.substring(1)
+                            else
+                                throw Exception("invalid location")
+                            ctx.locals[name] = typeStr to Owner(
+                                Either.ofB(env.addrOfAsMemStorage(label, type)),
+                                type
+                            )
                         }
                     } else {
                         throw Exception()
@@ -209,6 +258,8 @@ fun <E: Env<E>> ir(
         if (line.isEmpty()) continue
         if (line.startsWith("fn") || line.startsWith("export fn")) {
             val export = line[0] == 'e'
+            if (verbose)
+                env.comment(line)
             val fnName = line.substringAfter("fn ")
             env.switch(fnName)
             val fnLines = mutableListOf<String>()
@@ -219,13 +270,25 @@ fun <E: Env<E>> ir(
                 fnLines += line
             }
             ctx.functions.add(fnName)
-            parseAndEmit(fnLines, env, IrLocalScope(), verbose) { ctx.types[it]!! }
+            parseAndEmit(fnLines, env, IrLocalScope(ctx), verbose) { ctx.types[it]!! }
+            if (verbose)
+                env.comment("end")
             env.emitRet()
             if (export)
                 env.export(fnName)
         } else if (line.startsWith("extern fn")) {
             val name = line.substringAfter("extern fn ")
             env.import(name)
+        } else if (line.startsWith("data") || line.startsWith("export data")) {
+            val export = line[0] == 'e'
+            val rest = line.split(' ')
+            val name = rest[1]
+            if (verbose)
+                env.comment("data $name")
+            val data = rest.drop(2).map { it.toByte() }.toByteArray()
+            env.staticLabeledData(name, data.size, data)
+            if (export)
+                env.export(name)
         } else if (line.startsWith("type")) {
             val (name, def) = line.substringAfter("type ").split(" = ", limit = 2)
             assert(name !in ctx.types)

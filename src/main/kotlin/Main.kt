@@ -8,23 +8,41 @@ fun main() {
     }
 
     val env = X86Env(target)
+    env.regAlloc = false
 
     val code = """
         type int = :int w:32
+        type sint = :int w:16
+        type ptr = :int w:32
+        type u8 = :int w:8
+        
+        data putc_char 0
+        
+        fn putc
+            %charIn'al ? u8
+        
+            %char @mem u8 ::putc_char
+            %char = %charIn
+            ~ %char
+            ~ %charIn
+            %'eax = int 4
+            %'ebx = int 1
+            %'ecx = ptr [addr, ::putc_char]
+            %'edx = int 1
+            ! int 0x80
+        end
         
         export fn _start
-            %0 = int 0
+            %counter = sint 0
         :loop
-            %0 = int [add, %0, int 1]
-            [brl, :loop, %0, int 100]
-            ~ %0
+            %'al = int 65
+            [call, ::putc]
+            %counter = int [add, %counter, sint 1]
+            [brl, :loop, %counter, sint 100]
             
-            %0 @mem int 50
-            %0 = int 1
-            ~ %0
-            
-            %syscall'eax = int 1
-            %a0'ebx = int 0
+            ~ %counter
+            %'eax = int 1
+            %'ebx = int 0
             ! int 0x80
         end
     """

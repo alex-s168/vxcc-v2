@@ -23,6 +23,8 @@ internal fun <E: Env<E>> callEmitter(ctx: IrLocalScope<E>, env: E, call: IrCall<
         "bril" -> env.emitJumpIfSignedLess(call.args[1].getA(), call.args[2].getA(), call.args[0].getB())
         "brig" -> env.emitJumpIfSignedGreater(call.args[1].getA(), call.args[2].getA(), call.args[0].getB())
         "call" -> call.args[0].mapA { env.emitCall(it) }.mapB { env.emitCall(it) }
+        "reduce" -> call.args[0].getA().reduced(env, call.type!!).emitMov(env, dest!!.storage!!.flatten())
+        "addr" -> env.addrOf(call.args[0].getB(), dest!!.storage!!.flatten())
         else -> throw Exception("No builtin function ${call.fn}!")
     }
 }
