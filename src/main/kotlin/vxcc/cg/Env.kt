@@ -34,6 +34,8 @@ interface Env<T: Env<T>> {
     fun switch(label: String)
     fun export(label: String)
     fun import(label: String)
+    fun addrOf(label: String, dest: Storage<T>)
+    fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<T>
 
     fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<T>
     fun <V: Value<T>> addrToMemStorage(addr: V, flags: Owner.Flags): MemStorage<T>

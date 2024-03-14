@@ -6,8 +6,9 @@ import vxcc.cg.fake.DefStaticLogicOpImpl
 import vxcc.cg.fake.FakeBitSlice
 import vxcc.cg.fake.FakeVec
 
-class AbsMemStorage(
-    val addr: ULong,
+class X86MemStorage(
+    val emit: String,
+    val alignRef: Long,
     val flags: Owner.Flags
 ): AbstractX86Value,
     MemStorage<X86Env>,
@@ -17,16 +18,59 @@ class AbsMemStorage(
 {
     override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
         when (dest) {
+            is MemStorage -> {
+                if (dest.getWidth() != flags.totalWidth)
+                    throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
+
+                env.memCpy(this, dest, flags.totalWidth)
+            }
+
             is PullingStorage<X86Env> -> dest.emitPullFrom(env, this)
+
             is Reg -> {
-                if (flags.type.vector) {
-                    TODO()
-                } else {
-                    require(dest.isGP())
-                    require(dest.totalWidth == flags.totalWidth)
-                    env.emit("  mov ${dest.name}, ${sizeStr(flags.totalWidth)} [$addr]")
+                require(dest.totalWidth == flags.totalWidth)
+
+                when (dest.type) {
+                    Reg.Type.GP,
+                    Reg.Type.GP64EX -> {
+                        env.emit("  mov ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                    }
+
+                    Reg.Type.MM -> {
+                        env.emit("  movq ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                    }
+
+                    Reg.Type.XMM,
+                    Reg.Type.XMM64,
+                    Reg.Type.ZMMEX -> {
+                        when (dest.totalWidth) {
+                            128 ->
+                                if (alignRef % 16 == 0L) {
+                                    env.emit("  movaps ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                                } else {
+                                    env.emit("  movups ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                                }
+
+                            256 ->
+                                if (alignRef % 32 == 0L) {
+                                    env.emit("  vmovaps ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                                } else {
+                                    env.emit("  vmovups ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                                }
+
+                            512 ->
+                                if (alignRef % 64 == 0L) {
+                                    env.emit("  vmovaps ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                                } else {
+                                    env.emit("  vmovups ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
+                                }
+
+                            else -> throw Exception("wtf")
+                        }
+                    }
                 }
             }
+
             else -> TODO()
         }
     }
@@ -36,7 +80,7 @@ class AbsMemStorage(
             is Immediate -> {
                 require(flags.totalWidth == from.width)
                 require(!flags.type.vector)
-                env.emit("  mov ${sizeStr(flags.totalWidth)} [$addr], ${from.value}")
+                env.emit("  mov ${sizeStr(flags.totalWidth)} [$emit], ${from.value}")
             }
             is Reg -> {
                 if (flags.type.vector) {
@@ -44,7 +88,7 @@ class AbsMemStorage(
                 } else {
                     require(from.isGP())
                     require(from.totalWidth == flags.totalWidth)
-                    env.emit("  mov ${sizeStr(flags.totalWidth)} [$addr], ${from.name}")
+                    env.emit("  mov ${sizeStr(flags.totalWidth)} [$emit], ${from.name}")
                 }
             }
             is FakeVec -> {
@@ -59,7 +103,7 @@ class AbsMemStorage(
                     .computeIfAbsent(env, from::compute)
                     .storage!!.flatten()
                     .useInGPReg(env) { src ->
-                    env.emit("  mov ${sizeStr(next)} [$addr], ${src.name}")
+                    env.emit("  mov ${sizeStr(next)} [$emit], ${src.name}")
                 }
             }
             else -> TODO()

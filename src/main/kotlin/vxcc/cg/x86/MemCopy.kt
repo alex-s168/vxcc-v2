@@ -25,7 +25,7 @@ fun X86Env.memSet(dest: MemStorage<X86Env>, value: Byte, len: Int) {
             val first = len / 8
             for (i in 0.. first) {
                 val off = i * 8
-                regSto.emitMov(this, dest.offsetBytes(off))
+                regSto.emitMov(this, dest.offsetBytes(off).reducedStorage(this, Owner.Flags(Env.Use.STORE, 64, null, Type.INT)))
             }
             this.dealloc(reg)
             var left = len % 8

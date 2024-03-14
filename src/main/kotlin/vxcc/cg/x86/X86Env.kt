@@ -346,6 +346,9 @@ data class X86Env(
     }
 
     override fun switch(label: String) {
+        // TODO: do properly later when not depend on assembler
+        if (!label.startsWith('.'))
+            emit("align 16")
         emit("$label:")
     }
 
@@ -365,7 +368,7 @@ data class X86Env(
     }
 
     override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<X86Env> =
-        AbsMemStorage(addr, flags)
+        X86MemStorage(addr.toString(), addr.toLong(), flags)
 
     override fun <V: Value<X86Env>> addrToMemStorage(addr: V, flags: Owner.Flags): MemStorage<X86Env> {
         TODO()
@@ -387,13 +390,7 @@ data class X86Env(
                 Type.VxINT,
             )
             is FakeBitSlice<*> -> value.flags
-            is StackSlot -> Owner.Flags(
-                if (value.vecElemWidth == null) Env.Use.SCALAR_AIRTHM else Env.Use.VECTOR_ARITHM,
-                value.width,
-                value.vecElemWidth,
-                if (value.vecElemWidth == null) Type.INT else Type.VxINT,
-            )
-            is AbsMemStorage -> value.flags
+            is X86MemStorage -> value.flags
             else -> TODO("flagsOf $value")
         }
 
@@ -423,8 +420,7 @@ data class X86Env(
     // TODO: vectors
     private fun <V : Value<X86Env>> emitTest(va: V) {
         when (va) {
-            is StackSlot -> emit("  cmp ${sizeStr(va.width)} [${va.spIndexStr(this)}], 0")
-            is AbsMemStorage -> emit("  cmp ${sizeStr(va.flags.totalWidth)} [${va.addr}], 0")
+            is X86MemStorage -> emit("  cmp ${sizeStr(va.flags.totalWidth)} [${va.emit}], 0")
             else -> va.useInGPReg(this) {
                 emit("  test ${it.name}, ${it.name}")
             }
@@ -443,11 +439,8 @@ data class X86Env(
 
     private fun <A: Value<X86Env>, B: Value<X86Env>> emitCmp(a: A, b: B) {
         when (a) {
-            is StackSlot -> b.useInGPReg(this) {
-                emit("  cmp ${sizeStr(a.width)} [${a.spIndexStr(this)}], ${it.name}")
-            }
-            is AbsMemStorage -> b.useInGPReg(this) {
-                emit("  cmp ${sizeStr(a.flags.totalWidth)} [${a.addr}], ${it.name}")
+            is X86MemStorage -> b.useInGPReg(this) {
+                emit("  cmp ${sizeStr(a.flags.totalWidth)} [${a.emit}], ${it.name}")
             }
             else -> a.useInGPReg(this) { ar ->
                 b.useInGPReg(this) { br ->
@@ -502,8 +495,7 @@ data class X86Env(
                     else -> throw Exception("Unknown inline assembly arg destination $where")
                 }
                 str.append(when (val va = what.storage!!.flatten()) {
-                    is StackSlot -> "${sizeStr(va.width)} [${va.spIndexStr(this)}]"
-                    is AbsMemStorage -> "${sizeStr(va.flags.totalWidth)} [${va.addr}]"
+                    is X86MemStorage -> "${sizeStr(va.flags.totalWidth)} [${va.emit}]"
                     is Reg -> va.name
                     else -> throw Exception("wa")
                 })
@@ -512,4 +504,17 @@ data class X86Env(
         }
         emit(str.toString())
     }
+
+    override fun addrOf(label: String, dest: Storage<X86Env>) {
+        when (dest) {
+            is Reg -> emit("  mov ${dest.name}, $label")
+            is X86MemStorage -> emit("  mov ${sizeStr(dest.flags.totalWidth)} [${dest.emit}], $label")
+            else -> dest.useInGPRegWriteBack(this, copyInBegin = false) { dr ->
+                emit("  mov ${dr.name}, $label")
+            }
+        }
+    }
+
+    override fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<X86Env> =
+        X86MemStorage(label, if (label.startsWith('.')) 1 else 16, flags)
 }
