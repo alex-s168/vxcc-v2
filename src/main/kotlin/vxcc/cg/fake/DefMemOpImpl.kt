@@ -6,13 +6,13 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
     override fun memCpy(src: MemStorage<T>, dest: MemStorage<T>, len: Int) {
         if (optMode == Env.OptMode.SPEED) { // TODO: maybe not unroll the whole loop...
             repeat(len) { i ->
-                src.offsetBytes(i).emitMov(this as T, dest.offsetBytes(i))
+                // src.offsetBytes(i).emitMov(this as T, dest.offsetBytes(i))
             }
         } else {
             if (len == 0)
                 return
 
-            val counter = alloc(optimal.int)
+            val counter = allocHeated(optimal.int)
             val counterSto = counter.storage!!.flatten()
             counterSto.emitZero(this as T)
 
@@ -23,9 +23,8 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
             val temp = alloc(optimal.int)
             val tempSto = temp.storage!!.flatten()
             dest.emitArrayOffset(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), tempSto)
-            val d = addrToMemStorage(tempSto, Owner.Flags(Env.Use.STORE, 8, null, Type.INT))
+            val d = addrToMemStorage(temp, Owner.Flags(Env.Use.STORE, 8, null, Type.INT))
             src.emitArrayIndex(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), d)
-            dealloc(temp)
 
             counterSto.emitStaticAdd(this as T, 1uL, counterSto)
             emitJumpIfLess(counterSto, immediate(len.toLong(), optimal.int.totalWidth), loop)
@@ -42,7 +41,7 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
         
         emitJumpIfNot(len, end)
 
-        val counter = alloc(optimal.int)
+        val counter = allocHeated(optimal.int)
         val counterSto = counter.storage!!.flatten()
         counterSto.emitZero(this as T)
 
@@ -50,9 +49,8 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
         val temp = alloc(optimal.int)
         val tempSto = temp.storage!!.flatten()
         dest.emitArrayOffset(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), tempSto)
-        val d = addrToMemStorage(tempSto, Owner.Flags(Env.Use.STORE, 8, null, Type.INT))
+        val d = addrToMemStorage(temp, Owner.Flags(Env.Use.STORE, 8, null, Type.INT))
         src.emitArrayIndex(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), d)
-        dealloc(temp)
 
         counterSto.emitStaticAdd(this as T, 1uL, counterSto)
         emitJumpIfLess(counterSto, len, loop)

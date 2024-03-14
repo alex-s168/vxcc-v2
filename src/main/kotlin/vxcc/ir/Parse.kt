@@ -111,7 +111,9 @@ private fun <E: Env<E>> parseAndEmitVal(
             null
         }
     }
-    val (typeStr, rest) = v.split(' ', limit = 2)
+    val (typeStr, rest) = v.split(' ', limit = 2).also {
+        if (it.size != 2) throw Exception("Size needs to be specified!")
+    }
     val type = typeResolver(typeStr)
     return if (rest.startsWith('[')) {
         val destDest = dest?.invoke(typeStr, type)
@@ -198,9 +200,10 @@ private fun <E: Env<E>> parseAndEmit(
                                 type
                             )
                         } else if (where.startsWith('*')) {
-                            val addr = parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, where.substring(1), null)
+                            val ext = env.alloc(env.optimal.ptr)
+                            parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, where.substring(1)) { _, _ -> ext }
                             ctx.locals[name] = typeStr to Owner(
-                                Either.ofB(env.addrToMemStorage(addr!!, type)),
+                                Either.ofB(env.addrToMemStorage(ext, type)),
                                 type
                             )
                         } else {

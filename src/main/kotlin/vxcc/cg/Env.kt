@@ -17,6 +17,8 @@ interface Env<T: Env<T>> {
     fun forceIntoReg(owner: Owner<T>, name: String)
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
     fun alloc(flags: Owner.Flags): Owner<T>
+    fun allocHeated(flags: Owner.Flags): Owner<T> =
+        alloc(flags)
     fun dealloc(owner: Owner<T>)
     fun staticAlloc(widthBytes: Int, init: ByteArray?, flags: Owner.Flags): MemStorage<T>
     fun staticLabeledData(name: String, widthBytes: Int, init: ByteArray?)
@@ -39,7 +41,9 @@ interface Env<T: Env<T>> {
     fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<T>
 
     fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<T>
-    fun <V: Value<T>> addrToMemStorage(addr: V, flags: Owner.Flags): MemStorage<T>
+
+    /** COMPLETLY TAKES OVER OWNER */
+    fun addrToMemStorage(addr: Owner<T>, flags: Owner.Flags): MemStorage<T>
 
     fun <V: Value<T>> flagsOf(value: V): Owner.Flags
 

@@ -422,8 +422,12 @@ data class X86Env(
     override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<X86Env> =
         X86MemStorage(addr.toString(), addr.toLong(), flags)
 
-    override fun <V: Value<X86Env>> addrToMemStorage(addr: V, flags: Owner.Flags): MemStorage<X86Env> {
-        TODO()
+    /** COMPLETLY TAKES OVER OWNER */
+    override fun addrToMemStorage(addr: Owner<X86Env>, flags: Owner.Flags): MemStorage<X86Env> {
+        addr.moveIntoReg(this)
+        return X86MemStorage(addr.storage!!.flatten().asReg().name, 1, flags).also {
+            dealloc(addr)
+        }
     }
 
     override fun <V: Value<X86Env>> flagsOf(value: V): Owner.Flags =

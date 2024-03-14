@@ -11,7 +11,7 @@ fun main() {
     val env = X86Env(target)
     env.regAlloc = false
     env.stackAlloc = false
-    env.optMode = Env.OptMode.SIZE
+    // env.optMode = Env.OptMode.SIZE
 
     val code = """
         type int = :int w:32
@@ -24,7 +24,7 @@ fun main() {
         fn putc
             %charIn'al ? u8
         
-            %char @mem u8 ::putc_char
+            %char @mem u8 *ptr [add, ptr [addr, ::putc_char], ptr 1]
             %char = %charIn
             ~ %char
             ~ %charIn

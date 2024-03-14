@@ -5,7 +5,6 @@ import vxcc.cg.fake.DefFunOpImpl
 import vxcc.cg.fake.DefStaticLogicOpImpl
 import vxcc.cg.fake.FakeBitSlice
 import vxcc.cg.fake.FakeVec
-import kotlin.math.ceil
 
 class X86MemStorage(
     val emit: String,
@@ -19,6 +18,12 @@ class X86MemStorage(
     DefStaticLogicOpImpl<X86Env>,
     PullingStorage<X86Env>
 {
+    val defer = mutableListOf<() -> Unit>()
+
+    override fun onDestroy(env: X86Env) {
+        defer.forEach { it() }
+    }
+
     override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
         when (dest) {
             is MemStorage -> {
