@@ -30,6 +30,14 @@ class X86MemStorage(
                 if (dest.getWidth() != flags.totalWidth)
                     throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
 
+                if (dest.getWidth() in listOf(8, 16, 32)) { // TODO: other reg sizes dependent on target flags
+                    val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, dest.getWidth(), null, Type.INT))
+                    val regSto = reg.storage!!.flatten()
+                    emitMov(env, regSto)
+                    regSto.emitMov(env, dest)
+                    env.dealloc(reg)
+                }
+
                 env.memCpy(this, dest, flags.totalWidth)
             }
 

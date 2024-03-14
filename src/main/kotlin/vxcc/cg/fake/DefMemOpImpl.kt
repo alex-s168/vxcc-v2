@@ -5,8 +5,9 @@ import vxcc.cg.*
 interface DefMemOpImpl<T: Env<T>>: Env<T> {
     override fun memCpy(src: MemStorage<T>, dest: MemStorage<T>, len: Int) {
         if (optMode == Env.OptMode.SPEED) { // TODO: maybe not unroll the whole loop...
+            val flags = Owner.Flags(Env.Use.STORE, 8, null, Type.INT)
             repeat(len) { i ->
-                // src.offsetBytes(i).emitMov(this as T, dest.offsetBytes(i))
+                src.offsetBytes(i).reduced(this as T, flags).emitMov(this as T, dest.offsetBytes(i).reducedStorage(this as T, flags))
             }
         } else {
             if (len == 0)
