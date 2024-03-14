@@ -10,6 +10,7 @@ fun main() {
 
     val env = X86Env(target)
     env.regAlloc = false
+    env.stackAlloc = false
     env.optMode = Env.OptMode.SIZE
 
     val code = """

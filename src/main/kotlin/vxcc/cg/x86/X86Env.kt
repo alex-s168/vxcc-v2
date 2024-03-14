@@ -4,6 +4,7 @@ import vxcc.cg.*
 import vxcc.cg.fake.DefMemOpImpl
 import vxcc.cg.fake.FakeBitSlice
 import vxcc.cg.fake.FakeVec
+import kotlin.math.ceil
 
 data class X86Env(
     val target: Target
@@ -54,6 +55,7 @@ data class X86Env(
     }
 
     var regAlloc = true
+    var stackAlloc = true
     override var optMode = Env.OptMode.SPEED
 
     override val optimal = object: Optimal<X86Env> {
@@ -246,6 +248,27 @@ data class X86Env(
         getBestAvailableReg(flags)?.let { forceAllocReg(it, flags) }
             ?: throw Exception("No compatible register for $flags")
 
+    private val spRegName = if (target.amd64_v1) "rsp" else if (target.is32) "esp" else "sp"
+    private val bpRegName = if (target.amd64_v1) "rbp" else if (target.is32) "ebp" else "bp"
+
+    private var nextStackPos = 0
+
+    override fun enterFrame() {
+        emit("  push $spRegName")
+        emit("  mov $bpRegName, $spRegName")
+    }
+
+    override fun leaveFrame() {
+        emit("  leave")
+    }
+
+    fun stackAlloc(flagsIn: Owner.Flags): Owner<X86Env> {
+        val flags = flagsIn.copy(totalWidth = (ceil(flagsIn.totalWidth.toDouble() / 16) * 16).toInt())
+        val pos = nextStackPos + flags.totalWidth / 8
+        nextStackPos += flags.totalWidth / 8
+        return Owner(Either.ofB(X86MemStorage("$bpRegName - $pos", 16, flags, bpRegName, -pos)), flags)
+    }
+
     override fun alloc(flags: Owner.Flags): Owner<X86Env> {
         // TODO: consider weird sized ints
 
@@ -258,7 +281,8 @@ data class X86Env(
         if (flags.type.vector)
             return Owner(Either.ofB(FakeVec.create(this, flags)), flags)
 
-        // TODO: implement stack alloc
+        if (stackAlloc)
+            return stackAlloc(flags)
 
         return Owner(Either.ofB(staticAlloc(flags.totalWidth / 8, null, flags)), flags)
     }
@@ -467,8 +491,11 @@ data class X86Env(
 
     private fun <A: Value<X86Env>, B: Value<X86Env>> emitCmp(a: A, b: B) {
         when (a) {
-            is X86MemStorage -> b.useInGPReg(this) {
-                emit("  cmp ${sizeStr(a.flags.totalWidth)} [${a.emit}], ${it.name}")
+            is X86MemStorage -> when (b) {
+                is Immediate -> emit("  cmp ${sizeStr(a.flags.totalWidth)} [${a.emit}], ${b.value}")
+                else -> b.useInGPReg(this) { br ->
+                    emit("  cmp ${sizeStr(a.flags.totalWidth)} [${a.emit}], ${br.name}")
+                }
             }
             else -> a.useInGPReg(this) { ar ->
                 when (b) {

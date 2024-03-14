@@ -262,6 +262,7 @@ fun <E: Env<E>> ir(
                 env.comment(line)
             val fnName = line.substringAfter("fn ")
             env.switch(fnName)
+            env.enterFrame()
             val fnLines = mutableListOf<String>()
             while (true) {
                 line = lines.next().trim()
@@ -273,6 +274,7 @@ fun <E: Env<E>> ir(
             parseAndEmit(fnLines, env, IrLocalScope(ctx), verbose) { ctx.types[it]!! }
             if (verbose)
                 env.comment("end")
+            env.leaveFrame()
             env.emitRet()
             if (export)
                 env.export(fnName)
