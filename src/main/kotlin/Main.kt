@@ -4,7 +4,6 @@ import vxcc.ir.ir
 
 fun main() {
     val target = Target().apply {
-        amd64_v1 = true
         mmx = true
     }
 
@@ -13,16 +12,20 @@ fun main() {
     val code = """
         type int = :int w:32
         
-        export fn main
-            %0'edi = int 10
-            %1 = int 20
-            %0 = int (add %0 %1)
-            ~ %1
+        export fn _start
+            %0 = int 0
             %1 = int 1
+            %2 = int 100
+        :loop
             %0 = int (add %0 %1)
+            (brl :loop %0 %2)
+            ~ %0
             ~ %1
-            %1 @mem int 123
-            %0 <> eax
+            ~ %2
+            
+            %syscall'eax = int 1
+            %a0'ebx = int 0
+            ! int 0x80
         end
     """
 

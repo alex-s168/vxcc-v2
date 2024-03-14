@@ -24,6 +24,7 @@ fun Value<X86Env>.getWidth(): Int =
         is Immediate -> this.width
         is StackSlot -> this.width
         is FakeBitSlice -> this.flags.totalWidth
+        is AbsMemStorage -> this.flags.totalWidth
         else -> TODO("getWidth() for type")
     }
 

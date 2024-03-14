@@ -42,6 +42,8 @@ interface Env<T: Env<T>> {
 
     fun <V: Value<T>> backToImm(value: V): Long
 
+    fun inlineAsm(inst: String, vararg code: Either<String, Pair<String, Owner<T>>>)
+
     val optimal: Optimal<T>
 
     var optMode: OptMode

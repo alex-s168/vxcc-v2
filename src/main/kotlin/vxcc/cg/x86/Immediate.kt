@@ -14,8 +14,13 @@ data class Immediate(
         when (dest) {
             is Reg -> when (dest.type) {
                 Reg.Type.GP,
-                Reg.Type.GP64EX -> {
-                    env.emit("  mov ${dest.name}, $value")
+                Reg.Type.GP64EX -> when (value) {
+                    0L -> dest.emitZero(env)
+                    1L -> {
+                        dest.emitZero(env)
+                        env.emit("  inc ${dest.name}")
+                    }
+                    else -> env.emit("  mov ${dest.name}, $value")
                 }
 
                 else -> TODO("immediate emit mov to reg type ${dest.type}")

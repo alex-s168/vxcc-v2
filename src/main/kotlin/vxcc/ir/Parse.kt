@@ -46,7 +46,7 @@ private fun <E: Env<E>> parseAndEmitCall(
     val fn = call[0]
     val args = call.drop(1).map {
         if (it.startsWith(':'))
-            Either.ofB(it.substring(1))
+            Either.ofB(".${it.substring(1)}")
         else
             Either.ofA<Value<E>, String>(parseAndEmitVal(ctx, typeResolver, callEmitter, env, it, null)!!)
     }
@@ -104,7 +104,7 @@ private fun <E: Env<E>> parseAndEmit(
         val line = lineIn.split('#', limit = 0)[0].trim()
         when (line.firstOrNull() ?: continue) {
             ':' -> {
-                val bn = line.substring(1)
+                val bn = ".${line.substring(1)}"
                 env.switch(bn)
                 ctx.blocks.add(bn)
             }
@@ -118,6 +118,15 @@ private fun <E: Env<E>> parseAndEmit(
                         } else {
                             ctx.locals.computeIfAbsent(name) { typeStr to env.alloc(type) }.second
                         }
+                    }
+                } else if (rest.startsWith("?")) {
+                    val typeStr = rest.substring(2)
+                    val type = typeResolver(typeStr)
+                    if (name.contains('\'')) {
+                        val (rname, rdest) = name.split('\'')
+                        ctx.locals[rname] =  typeStr to env.forceAllocReg(type, rdest)
+                    } else {
+                        ctx.locals[name] = typeStr to env.alloc(type)
                     }
                 } else if (rest.startsWith("<>")) {
                     val into = rest.substring(3)
@@ -150,11 +159,24 @@ private fun <E: Env<E>> parseAndEmit(
                 }
             }
             '(' -> {
-                parseAndEmitCall(ctx, typeResolver, ::callEmitter, env, line.substring(1), null, null)
+                parseAndEmitCall(ctx, typeResolver, ::callEmitter, env, line, null, null)
             }
             '~' -> {
                 val name = line.substring(3)
                 env.dealloc(ctx.locals.remove(name)!!.second)
+            }
+            '!'-> {
+                val asm = line.substring(2).split(' ')
+                val cmd = asm[0]
+                val args = asm.drop(1).map {
+                    if (it.startsWith('%')) {
+                        val (v, w) = it.substring(1).split('@', limit = 2)
+                        Either.ofB<String, Pair<String, Owner<E>>>(w to ctx.locals[v]!!.second)
+                    } else {
+                        Either.ofA(it)
+                    }
+                }.toTypedArray()
+                env.inlineAsm(cmd, *args)
             }
             else -> throw Exception("First symbol in line unexpected: $line")
         }

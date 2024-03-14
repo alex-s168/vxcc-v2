@@ -384,6 +384,7 @@ data class X86Env(
                 value.vecElemWidth,
                 if (value.vecElemWidth == null) Type.INT else Type.VxINT,
             )
+            is AbsMemStorage -> value.flags
             else -> TODO("flagsOf $value")
         }
 
@@ -414,6 +415,7 @@ data class X86Env(
     private fun <V : Value<X86Env>> emitTest(va: V) {
         when (va) {
             is StackSlot -> emit("  cmp ${sizeStr(va.width)} [${va.spIndexStr(this)}], 0")
+            is AbsMemStorage -> emit("  cmp ${sizeStr(va.flags.totalWidth)} [${va.addr}], 0")
             else -> va.useInGPReg(this) {
                 emit("  test ${it.name}, ${it.name}")
             }
@@ -435,12 +437,12 @@ data class X86Env(
             is StackSlot -> b.useInGPReg(this) {
                 emit("  cmp ${sizeStr(a.width)} [${a.spIndexStr(this)}], ${it.name}")
             }
+            is AbsMemStorage -> b.useInGPReg(this) {
+                emit("  cmp ${sizeStr(a.flags.totalWidth)} [${a.addr}], ${it.name}")
+            }
             else -> a.useInGPReg(this) { ar ->
-                when (b) {
-                    is StackSlot -> emit("  cmp ${sizeStr(b.width)} [${b.spIndexStr(this)}], ${ar.name}")
-                    else -> b.useInGPReg(this) { br ->
-                        emit("  cmp ${ar.name}, ${br.name}")
-                    }
+                b.useInGPReg(this) { br ->
+                    emit("  cmp ${ar.name}, ${br.name}")
                 }
             }
         }
@@ -480,5 +482,31 @@ data class X86Env(
     override fun <A: Value<X86Env>, B: Value<X86Env>> emitJumpIfSignedGreater(a: A, b: B, block: String) {
         emitCmp(a, b)
         emit("  jg $block")
+    }
+
+    override fun inlineAsm(inst: String, vararg code: Either<String, Pair<String, Owner<X86Env>>>) {
+        val str = StringBuilder()
+        str.append(inst)
+        str.append(' ')
+        code.forEach { e ->
+            e.mapA {
+                str.append(it)
+                str.append(' ')
+            }.mapB { (where, what) ->
+                when (where) {
+                    "r" -> what.moveIntoReg(this)
+                    "rm" -> Unit
+                    else -> throw Exception("Unknown inline assembly arg destination $where")
+                }
+                str.append(when (val va = what.storage!!.flatten()) {
+                    is StackSlot -> "${sizeStr(va.width)} [${va.spIndexStr(this)}]"
+                    is AbsMemStorage -> "${sizeStr(va.flags.totalWidth)} [${va.addr}]"
+                    is Reg -> va.name
+                    else -> throw Exception("wa")
+                })
+                str.append(' ')
+            }
+        }
+        emit(str.toString())
     }
 }

@@ -1,23 +1,27 @@
 package vxcc.cg.x86
 
-import vxcc.cg.MemStorage
-import vxcc.cg.Owner
-import vxcc.cg.Storage
-import vxcc.cg.Value
-import vxcc.cg.fake.DefArrayIndexImpl
+import vxcc.cg.*
 import vxcc.cg.fake.DefFunOpImpl
-import vxcc.cg.fake.DefStaticOpImpl
+import vxcc.cg.fake.DefStaticLogicOpImpl
 
 class AbsMemStorage(
     val addr: ULong,
     val flags: Owner.Flags
-): MemStorage<X86Env>,
+): AbstractX86Value,
+    MemStorage<X86Env>,
     DefFunOpImpl<X86Env>,
-    DefStaticOpImpl<X86Env>,
-    DefArrayIndexImpl<X86Env>
+    DefStaticLogicOpImpl<X86Env>,
+    PullingStorage<X86Env>
 {
     override fun emitMov(env: X86Env, dest: Storage<X86Env>) {
-        TODO("Not yet implemented")
+        when (dest) {
+            is PullingStorage<X86Env> -> dest.emitPullFrom(env, this)
+            else -> TODO()
+        }
+    }
+
+    override fun emitPullFrom(env: X86Env, from: Value<X86Env>) {
+        TODO()
     }
 
     override fun <V : Value<X86Env>> emitMask(env: X86Env, mask: V, dest: Storage<X86Env>) {
