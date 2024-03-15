@@ -44,13 +44,14 @@ class UA16Assembler(
         data(byteArrayOf(byte))
     }
 
-    private fun parseReg(name: String): Int =
+    private fun parseReg(name: String, selectPc: Boolean = false): Int =
         when (name) {
             "r0" -> 0
             "r1" -> 1
             "r2" -> 2
             "c1" -> throw Exception("'c1' should not be used in assembly! Use '1' instead!")
-            "1" -> 3
+            "1" -> if (!selectPc) 3 else throw Exception("Can not use constant 1 for this instruction; program counter register selected instead!")
+            "pc" -> if (selectPc) 3 else throw Exception("Can nto use program counter register for this instruction; constant 1 is selected instead!")
             else -> throw Exception("Unknown register $name!")
         }
 
@@ -101,6 +102,18 @@ class UA16Assembler(
                     refs += Triple(next, args[1], dest)
                     next += 8
                 }
+            }
+            "@callnc" -> {
+                val addrReg = args[0]
+                assemble("phr pc", this)
+                assemble("bnc $addrReg", this)
+            }
+            "@retnc" -> {
+                val clob = args[0].split("clob=").getOrNull(1) ?: throw Exception("Invalid usage! Usage: @ret clob=reg")
+                assemble("plr $clob", this)
+                assemble("add $clob, 1", this)
+                assemble("add $clob, 1", this)
+                assemble("bnc $clob", this)
             }
             else -> throw Exception("Unknown instruction or macro $name!")
         }
