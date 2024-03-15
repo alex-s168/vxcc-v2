@@ -25,8 +25,10 @@ class UA16MemSto(
         val reg = env.forceAllocReg(env.optimal.ptr, env.firstFreeReg())
         val regSto = reg.storage!!.flatten() as UA16Reg
         addrGetIntoReg(regSto.name)
-        if (offset != 0)
+        if (offset != 0) {
+            regSto.emitZero(env)
             regSto.emitStaticAdd(env, offset.toULong(), regSto)
+        }
         block(regSto)
         env.dealloc(reg)
     }
@@ -38,7 +40,16 @@ class UA16MemSto(
     override fun emitZero(env: UA16Env) {
         env.emit("clc")
         env.emit("fwc ${env.clobReg}")
-        env.memSet(this, UA16Reg(env.clobReg, 16), flags.totalWidth / 8)
+        if (flags.totalWidth <= 32) {
+            useAddrInReg(env) { addr ->
+                repeat(flags.totalWidth / 8) {
+                    env.emit("sto ${addr.name}, ${env.clobReg}")
+                    env.emit("adc ${addr.name}, 1")
+                }
+            }
+        } else {
+            env.memSet(this, UA16Reg(env.clobReg, 16), flags.totalWidth / 8)
+        }
     }
 
     override fun emitMov(env: UA16Env, dest: Storage<UA16Env>) {

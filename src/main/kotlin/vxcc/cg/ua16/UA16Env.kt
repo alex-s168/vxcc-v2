@@ -216,7 +216,7 @@ class UA16Env(
 
     override fun emitRet() {
         unsetCarry()
-        emit("@retnc $clobReg clob=$clobReg")
+        emit("@retnc clob=$clobReg")
     }
 
     override fun emitCall(fn: String) {

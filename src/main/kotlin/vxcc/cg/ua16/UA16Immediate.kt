@@ -17,8 +17,41 @@ class UA16Immediate(
     DefArrayIndexImpl<UA16Env>
 {
     override fun emitMov(env: UA16Env, dest: Storage<UA16Env>) {
+        if (value == 0L) {
+            dest.emitZero(env)
+            return
+        }
+
         dest.useInRegWriteBack(env, copyInBegin = false) { dreg ->
-            env.emit("@imm ${dreg.name}, $value")
+            when (value) {
+                1L -> {
+                    env.emit("clc")
+                    env.emit("fwc ${dreg.name}")
+                    env.emit("adc ${dreg.name}, 1")
+                }
+                2L -> {
+                    env.emit("clc")
+                    env.emit("fwc ${dreg.name}")
+                    env.emit("adc ${dreg.name}, 1")
+                    env.emit("adc ${dreg.name}, 1")
+                }
+                3L -> {
+                    env.emit("clc")
+                    env.emit("fwc ${dreg.name}")
+                    env.emit("adc ${dreg.name}, 1")
+                    env.emit("adc ${dreg.name}, 1")
+                    env.emit("adc ${dreg.name}, 1")
+                }
+                4L -> {
+                    env.emit("clc")
+                    env.emit("fwc ${dreg.name}")
+                    env.emit("adc ${dreg.name}, 1")
+                    env.emit("adc ${dreg.name}, 1")
+                    env.emit("adc ${dreg.name}, 1")
+                    env.emit("adc ${dreg.name}, 1")
+                }
+                else -> env.emit("@imm ${dreg.name}, $value")
+            }
         }
     }
 
