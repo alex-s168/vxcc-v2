@@ -17,16 +17,17 @@ class UA16Immediate(
     DefArrayIndexImpl<UA16Env>
 {
     override fun emitMov(env: UA16Env, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
+        dest.useInRegWriteBack(env, copyInBegin = false) { dreg ->
+            env.emit("@imm $dreg, $value")
+        }
     }
 
     override fun <V : Value<UA16Env>> emitMask(env: UA16Env, mask: V, dest: Storage<UA16Env>) {
         TODO("Not yet implemented")
     }
 
-    override fun reduced(env: UA16Env, new: Owner.Flags): Value<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun reduced(env: UA16Env, new: Owner.Flags): Value<UA16Env> =
+        UA16Immediate(value, new.totalWidth)
 
     override fun <V : Value<UA16Env>> emitAdd(env: UA16Env, other: V, dest: Storage<UA16Env>) {
         TODO("Not yet implemented")

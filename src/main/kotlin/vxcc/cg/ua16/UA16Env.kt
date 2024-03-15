@@ -23,11 +23,8 @@ class UA16Env(
     /** a register that will never be allocated */
     val clobReg = "r2"
 
-    var carryGuaranteedUnset = false
-
     fun unsetCarry() {
-        if (!carryGuaranteedUnset)
-            emit("clc")
+        emit("clc")
     }
 
     val registers = mutableMapOf<String, Owner<UA16Env>?>(
@@ -52,6 +49,7 @@ class UA16Env(
         return owner
     }
 
+    // TODO: bit slices
     override fun alloc(flags: Owner.Flags): Owner<UA16Env> =
         Owner(Either.ofB(staticAlloc(flags.totalWidth, null, flags)), flags)
 
@@ -59,8 +57,9 @@ class UA16Env(
     private var nextDataId = 0
 
     override fun staticAlloc(widthBytes: Int, init: ByteArray?, flags: Owner.Flags): MemStorage<UA16Env> {
-        staticLabeledData("_d_a_t_a__${nextDataId ++}", widthBytes, init)
-        TODO()
+        val label = "_d_a_t_a__${nextDataId ++}"
+        staticLabeledData(label, widthBytes, init)
+        return addrOfAsMemStorage(label, flags)
     }
 
     override fun staticLabeledData(name: String, widthBytes: Int, init: ByteArray?) {
@@ -111,13 +110,16 @@ class UA16Env(
         // TODO?
     }
 
-    override fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<UA16Env> =
+        UA16MemSto(flags) {
+            emit("@imm $it, $label")
+        }
 
-    override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<UA16Env> =
+        UA16MemSto(flags) {
+            immediate(addr.toLong(), optimal.ptr.totalWidth)
+                .emitMov(this, UA16Reg(it, optimal.ptr.totalWidth))
+        }
 
     override fun enterFrame() =
         Unit
@@ -164,15 +166,21 @@ class UA16Env(
             is FakeVec<*> -> Owner.Flags(Env.Use.VECTOR_ARITHM, value.elements.size * value.elemWidth, value.elemWidth, Type.VxINT)
             is UA16Immediate -> Owner.Flags(Env.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
             is UA16Reg -> Owner.Flags(Env.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
+            is UA16MemSto -> value.flags
             else -> TODO()
         }
 
-    override fun addrToMemStorage(addr: Owner<UA16Env>, flags: Owner.Flags): MemStorage<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun addrToMemStorage(addr: Owner<UA16Env>, flags: Owner.Flags): MemStorage<UA16Env> =
+        UA16MemSto(flags) { r ->
+            addr.storage!!.flatten().emitMov(this, UA16Reg(r, optimal.ptr.totalWidth))
+        }.also {
+            it.defer += { dealloc(addr) }
+        }
 
     override fun addrOf(label: String, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
+        dest.useInRegWriteBack(this, copyInBegin = false) { reg ->
+            emit("@imm $reg, $label")
+        }
     }
 
     override fun makeVecDouble(dpFloat: Value<UA16Env>, count: Int): Owner<UA16Env> =
@@ -208,14 +216,12 @@ class UA16Env(
         unsetCarry()
         emit("@imm $clobReg, $fn")
         emit("@callnc $clobReg")
-        carryGuaranteedUnset = false
     }
 
     override fun emitJump(block: String) {
         unsetCarry()
         emit("@imm $clobReg, $block")
         emit("bnc $clobReg")
-        carryGuaranteedUnset = false
     }
 
     private fun nandCarryWithRegIntoCarry(clobExtra: String, b: String) {
