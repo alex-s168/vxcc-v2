@@ -66,7 +66,7 @@ data class X86Env(
         override val boolSmall = boolFast
 
         /** fastest boolean type if speed opt, otherwise smallest boolean type */
-        override val bool = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+        override val bool get() = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
 
         /** overall fastest int type */
         override val intFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.INT)
@@ -75,7 +75,7 @@ data class X86Env(
         override val intSmall = intFast
 
         /** fastest int type if speed opt, otherwise smallest int type */
-        override val int = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+        override val int get() = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
 
         override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else if (target.amd64_v1) 64 else 16, null, Type.INT)
     }
@@ -306,12 +306,12 @@ data class X86Env(
     override fun makeRegSize(size: Int): Int =
         if (size <= 8) 8
         else if (size <= 16) 16
-        else if (size <= 32) 32
-        else if (size <= 64) 64
-        else if (size <= 128) 128
-        else if (size <= 256) 256
-        else if (size <= 512) 512
-        else size
+        else if (size <= 32 && target.is32) 32
+        else if (size <= 64 && (target.amd64_v1 || target.mmx)) 64
+        else if (size <= 128 && target.sse1) 128
+        else if (size <= 256 && target.avx2) 256
+        else if (size <= 512 && target.avx512f) 512
+        else throw Exception("above native register size!")
 
     override fun nextUpNative(flags: Owner.Flags): Owner.Flags =
         flags.copy(totalWidth = makeRegSize(flags.totalWidth))

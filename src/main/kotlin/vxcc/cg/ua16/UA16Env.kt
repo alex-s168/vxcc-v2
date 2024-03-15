@@ -4,6 +4,10 @@ import vxcc.asm.assemble
 import vxcc.asm.ua16.UA16Assembler
 import vxcc.cg.*
 import vxcc.cg.fake.DefMemOpImpl
+import vxcc.cg.fake.FakeBitSlice
+import vxcc.cg.fake.FakeVec
+
+// TODO: bit slice immediates -> static alloc
 
 class UA16Env(
     orig: Int
@@ -26,56 +30,85 @@ class UA16Env(
             emit("clc")
     }
 
+    val registers = mutableMapOf<String, Owner<UA16Env>?>(
+        "r0" to null,
+        "r1" to null,
+    )
+
+    fun firstFreeReg(): String =
+        registers.toList().first { it.second == null }.first
+
     override fun forceAllocReg(flags: Owner.Flags, name: String): Owner<UA16Env> {
-        TODO("Not yet implemented")
+        registers[name]?.let { old ->
+            if (old.shouldBeDestroyed) {
+                old.storage!!.flatten().onDestroy(this)
+            } else {
+                val new = alloc(old.flags)
+                old.storage = new.storage
+            }
+        }
+        val owner = Owner(Either.ofB(UA16Reg(name, flags.totalWidth)), flags)
+        registers[name] = owner
+        return owner
     }
 
-    override fun alloc(flags: Owner.Flags): Owner<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun alloc(flags: Owner.Flags): Owner<UA16Env> =
+        Owner(Either.ofB(staticAlloc(flags.totalWidth, null, flags)), flags)
+
+    private val staticAllocs = mutableMapOf<String, ByteArray>()
+    private var nextDataId = 0
 
     override fun staticAlloc(widthBytes: Int, init: ByteArray?, flags: Owner.Flags): MemStorage<UA16Env> {
-        TODO("Not yet implemented")
+        staticLabeledData("_d_a_t_a__${nextDataId ++}", widthBytes, init)
+        TODO()
     }
 
     override fun staticLabeledData(name: String, widthBytes: Int, init: ByteArray?) {
-        TODO("Not yet implemented")
+        val arr = init ?: ByteArray(widthBytes)
+        require(arr.size == widthBytes)
+        staticAllocs[name] = arr
     }
 
-    override fun makeRegSize(size: Int): Int {
-        TODO("Not yet implemented")
-    }
+    override fun makeRegSize(size: Int): Int =
+        if (size <= 8) 8
+        else if (size <= 16) 16
+        else throw Exception("above native register size!")
 
-    override fun nextUpNative(flags: Owner.Flags): Owner.Flags {
-        TODO("Not yet implemented")
-    }
+    override fun nextUpNative(flags: Owner.Flags): Owner.Flags =
+        flags.copy(totalWidth = makeRegSize(flags.totalWidth))
 
     override fun immediate(value: Long, width: Int): Value<UA16Env> {
-        TODO("Not yet implemented")
+        runCatching {
+            if (makeRegSize(width) == width)
+                return UA16Immediate(value, width)
+        }
+        val flags = Owner.Flags(Env.Use.SCALAR_AIRTHM, width, null, Type.INT)
+        return alloc(flags).storage!!.flatten().also {
+            UA16Immediate(value, width).emitMov(this, it)
+        }
     }
 
-    override fun immediate(value: Double): Value<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun immediate(value: Double): Value<UA16Env> =
+        throw Exception("floats not yet supported on ua16")
 
-    override fun immediate(value: Float): Value<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun immediate(value: Float): Value<UA16Env> =
+        throw Exception("floats not yet supported on ua16")
 
-    override fun newLocalLabel(): String {
-        TODO("Not yet implemented")
-    }
+    private var nextLocalLabelId = 0
+
+    override fun newLocalLabel(): String =
+        ".l${nextLocalLabelId ++}"
 
     override fun switch(label: String) {
-        TODO("Not yet implemented")
+        assembler.label(label, mapOf())
     }
 
     override fun export(label: String) {
-        TODO("Not yet implemented")
+        // TODO?
     }
 
     override fun import(label: String) {
-        TODO("Not yet implemented")
+        // TODO?
     }
 
     override fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<UA16Env> {
@@ -86,39 +119,53 @@ class UA16Env(
         TODO("Not yet implemented")
     }
 
-    override fun enterFrame() {
-        TODO("Not yet implemented")
-    }
+    override fun enterFrame() =
+        Unit
 
-    override fun leaveFrame() {
-        TODO("Not yet implemented")
-    }
+    override fun leaveFrame() =
+        Unit
 
     override fun comment(comment: String) {
-        TODO("Not yet implemented")
+        assembler.source.append("; $comment\n")
     }
 
     override fun finish() {
-        TODO("Not yet implemented")
+        staticAllocs.forEach { (k, v) ->
+            assembler.label(k, mapOf())
+            assembler.data(v, mapOf())
+        }
+        assembler.finish()
     }
 
-    override val optimal: Optimal<UA16Env>
-        get() = TODO("Not yet implemented")
-    override var optMode: Env.OptMode
-        get() = TODO("Not yet implemented")
-        set(value) {}
+    override val optimal = object : Optimal<UA16Env> {
+        override val bool = Owner.Flags(Env.Use.SCALAR_AIRTHM, 8, null, Type.INT)
+        override val boolFast = bool
+        override val boolSmall = bool
+
+        override val int = Owner.Flags(Env.Use.SCALAR_AIRTHM, 8, null, Type.INT)
+        override val intFast = int
+        override val intSmall = int
+
+        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, 16, null, Type.INT)
+    }
+
+    override var optMode = Env.OptMode.SPEED
 
     override fun inlineAsm(inst: String, vararg code: Either<String, Pair<String, Owner<UA16Env>>>) {
-        TODO("Not yet implemented")
+       TODO()
     }
 
-    override fun <V : Value<UA16Env>> backToImm(value: V): Long {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> backToImm(value: V): Long =
+        (value as UA16Immediate).value
 
-    override fun <V : Value<UA16Env>> flagsOf(value: V): Owner.Flags {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> flagsOf(value: V): Owner.Flags =
+        when (value) {
+            is FakeBitSlice<*> -> value.flags
+            is FakeVec<*> -> Owner.Flags(Env.Use.VECTOR_ARITHM, value.elements.size * value.elemWidth, value.elemWidth, Type.VxINT)
+            is UA16Immediate -> Owner.Flags(Env.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
+            is UA16Reg -> Owner.Flags(Env.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
+            else -> TODO()
+        }
 
     override fun addrToMemStorage(addr: Owner<UA16Env>, flags: Owner.Flags): MemStorage<UA16Env> {
         TODO("Not yet implemented")
@@ -128,20 +175,28 @@ class UA16Env(
         TODO("Not yet implemented")
     }
 
-    override fun makeVecDouble(dpFloat: Value<UA16Env>, count: Int): Owner<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun makeVecDouble(dpFloat: Value<UA16Env>, count: Int): Owner<UA16Env> =
+        throw Exception("ua16 currently does not support floats!")
 
-    override fun makeVecFloat(spFloat: Value<UA16Env>, count: Int): Owner<UA16Env> {
-        TODO("Not yet implemented")
-    }
+    override fun makeVecFloat(spFloat: Value<UA16Env>, count: Int): Owner<UA16Env> =
+        throw Exception("ua16 currently does not support floats!")
 
     override fun dealloc(owner: Owner<UA16Env>) {
-        TODO("Not yet implemented")
+        val sto = owner.storage!!.flatten()
+        sto.onDestroy(this)
+        if (sto is UA16Reg) {
+            registers[sto.name] = null
+        }
     }
 
     override fun forceIntoReg(owner: Owner<UA16Env>, name: String) {
-        TODO("Not yet implemented")
+        val ownerSto = owner.storage!!.flatten()
+        if (ownerSto is UA16Reg && ownerSto.name == name)
+            return
+        val new = forceAllocReg(owner.flags, name)
+        ownerSto.emitMov(this, new.storage!!.flatten())
+        dealloc(owner)
+        owner.storage = new.storage
     }
 
     override fun emitRet() {
@@ -187,8 +242,8 @@ class UA16Env(
     }
 
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfGreater(a: A, b: B, block: String) {
-        a.useInReg { aReg ->
-            b.useInReg { bReg ->
+        a.useInReg(this) { aReg ->
+            b.useInReg(this) { bReg ->
                 emit("mov $clobReg, $aReg")
                 emit("sub $clobReg, $bReg")
                 emit("tst $clobReg")
@@ -207,8 +262,8 @@ class UA16Env(
     }
 
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfLess(a: A, b: B, block: String) {
-        a.useInReg { aReg ->
-            b.useInReg { bReg ->
+        a.useInReg(this) { aReg ->
+            b.useInReg(this) { bReg ->
                 emit("ltu $aReg, $bReg")
                 emit("inv")
                 emit("@imm $clobReg, $block")
@@ -218,8 +273,8 @@ class UA16Env(
     }
 
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfNotEq(a: A, b: B, block: String) {
-        a.useInReg { aReg ->
-            b.useInReg { bReg ->
+        a.useInReg(this) { aReg ->
+            b.useInReg(this) { bReg ->
                 emit("mov $clobReg, $aReg")
                 emit("sub $clobReg, $bReg")
                 emit("tst $clobReg")
@@ -230,8 +285,8 @@ class UA16Env(
     }
 
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfEq(a: A, b: B, block: String) {
-        a.useInReg { aReg ->
-            b.useInReg { bReg ->
+        a.useInReg(this) { aReg ->
+            b.useInReg(this) { bReg ->
                 emit("mov $clobReg, $aReg")
                 emit("sub $clobReg, $bReg")
                 emit("tst $clobReg")
@@ -243,7 +298,7 @@ class UA16Env(
     }
 
     override fun <V : Value<UA16Env>> emitJumpIfNot(bool: V, block: String) {
-        bool.useInReg { reg ->
+        bool.useInReg(this) { reg ->
             emit("tst $reg")
             emit("inv")
             emit("@imm $clobReg, $block")
@@ -252,7 +307,7 @@ class UA16Env(
     }
 
     override fun <V : Value<UA16Env>> emitJumpIf(bool: V, block: String) {
-        bool.useInReg { reg ->
+        bool.useInReg(this) { reg ->
             emit("tst $reg")
             emit("@imm $clobReg, $block")
             emit("bnc $clobReg")
@@ -260,7 +315,7 @@ class UA16Env(
     }
 
     override fun <V : Value<UA16Env>> emitCall(fn: V) {
-        fn.useInReg { reg ->
+        fn.useInReg(this) { reg ->
             emit("@call $reg")
         }
     }

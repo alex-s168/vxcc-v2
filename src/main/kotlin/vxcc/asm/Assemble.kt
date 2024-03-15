@@ -20,7 +20,7 @@ fun assemble(code: String, asm: Assembler) {
             sp[0] to sp.getOrNull(1)
         }
     for (lineIn in lines) {
-        val line = lineIn.split("#", limit = 2).first().trim()
+        val line = lineIn.split(";", limit = 2).first().trim()
         if (line.isEmpty())
             continue
         if (line.startsWith('[')) {
