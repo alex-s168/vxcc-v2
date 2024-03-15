@@ -24,7 +24,7 @@ fun main() {
         fn putc
             %charIn'al ? u8
         
-            %char @mem u8 *ptr [add, ptr [addr, ::putc_char], ptr 1]
+            %char @mem u8 ::putc_char
             %char = %charIn
             ~ %char
             ~ %charIn

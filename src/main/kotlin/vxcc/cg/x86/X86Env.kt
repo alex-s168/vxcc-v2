@@ -254,12 +254,12 @@ data class X86Env(
     private var nextStackPos = 0
 
     override fun enterFrame() {
-        emit("  push $spRegName")
-        emit("  mov $bpRegName, $spRegName")
+        // emit("  push $spRegName")
+        // emit("  mov $bpRegName, $spRegName")
     }
 
     override fun leaveFrame() {
-        emit("  leave")
+        // emit("  leave")
     }
 
     fun stackAlloc(flagsIn: Owner.Flags): Owner<X86Env> {

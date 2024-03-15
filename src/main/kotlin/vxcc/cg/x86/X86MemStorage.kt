@@ -36,9 +36,9 @@ class X86MemStorage(
                     emitMov(env, regSto)
                     regSto.emitMov(env, dest)
                     env.dealloc(reg)
+                } else {
+                    env.memCpy(this, dest, flags.totalWidth)
                 }
-
-                env.memCpy(this, dest, flags.totalWidth)
             }
 
             is PullingStorage<X86Env> -> dest.emitPullFrom(env, this)
