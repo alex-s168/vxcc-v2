@@ -1,9 +1,10 @@
-import vxcc.cg.Env
+import vxcc.cg.ua16.UA16Env
 import vxcc.cg.x86.Target
 import vxcc.cg.x86.X86Env
 import vxcc.ir.ir
 
 fun main() {
+    /*
     val target = Target().apply {
         mmx = true
     }
@@ -50,7 +51,30 @@ fun main() {
         end
     """
 
-    ir(code.lines().iterator(), env, verbose = true)
+     */
 
-    env.finish()
+    val env = UA16Env(0)
+
+    val code = """
+        type int = :int w:16
+        
+        export fn _start
+            %counter = int 0
+        :loop
+            %counter = int [add, %counter, int 1]
+            [brl, :loop, %counter, int 100]
+            
+            ~ %counter
+        end
+    """
+
+   val exception = runCatching {
+        ir(code.lines().iterator(), env, verbose = true)
+
+        env.finish()
+    }.exceptionOrNull()
+
+    println(env.source)
+
+    exception?.let { throw it }
 }

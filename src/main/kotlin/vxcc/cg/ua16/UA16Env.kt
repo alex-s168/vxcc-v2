@@ -12,13 +12,18 @@ import vxcc.cg.fake.FakeVec
 class UA16Env(
     orig: Int
 ): DefMemOpImpl<UA16Env> {
+    val source = StringBuilder()
     val assembler = UA16Assembler(orig)
 
-    fun emit(asm: String) =
+    fun emit(asm: String) {
         assemble(asm, assembler)
+        source.append("  $asm\n")
+    }
 
-    fun emitBytes(byteArray: ByteArray) =
+    fun emitBytes(byteArray: ByteArray) {
         assembler.data(byteArray, mapOf())
+        source.append("  db ${byteArray.joinToString()}\n")
+    }
 
     /** a register that will never be allocated */
     val clobReg = "r2"
@@ -51,7 +56,7 @@ class UA16Env(
 
     // TODO: bit slices
     override fun alloc(flags: Owner.Flags): Owner<UA16Env> =
-        Owner(Either.ofB(staticAlloc(flags.totalWidth, null, flags)), flags)
+        Owner(Either.ofB(staticAlloc(flags.totalWidth / 8, null, flags)), flags)
 
     private val staticAllocs = mutableMapOf<String, ByteArray>()
     private var nextDataId = 0
@@ -99,6 +104,7 @@ class UA16Env(
         ".l${nextLocalLabelId ++}"
 
     override fun switch(label: String) {
+        source.append("$label:\n")
         assembler.label(label, mapOf())
     }
 
@@ -128,13 +134,14 @@ class UA16Env(
         Unit
 
     override fun comment(comment: String) {
-        assembler.source.append("; $comment\n")
+        source.append("; $comment\n")
     }
 
     override fun finish() {
         staticAllocs.forEach { (k, v) ->
             assembler.label(k, mapOf())
-            assembler.data(v, mapOf())
+            source.append("$k:")
+            emitBytes(v)
         }
         assembler.finish()
     }
@@ -209,7 +216,7 @@ class UA16Env(
 
     override fun emitRet() {
         unsetCarry()
-        emit("@retnc $clobReg")
+        emit("@retnc $clobReg clob=$clobReg")
     }
 
     override fun emitCall(fn: String) {
@@ -250,16 +257,16 @@ class UA16Env(
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfGreater(a: A, b: B, block: String) {
         a.useInReg(this) { aReg ->
             b.useInReg(this) { bReg ->
-                emit("mov $clobReg, $aReg")
-                emit("sub $clobReg, $bReg")
+                emit("mov $clobReg, ${aReg.name}")
+                emit("sub $clobReg, ${bReg.name}")
                 emit("tst $clobReg")
                 emit("inv")
-                emit("fwc $bReg")
+                emit("fwc ${bReg.name}")
 
-                emit("ltu $aReg, $bReg")
+                emit("ltu ${aReg.name}, ${bReg.name}")
                 emit("inv")
 
-                nandCarryWithRegIntoCarry(aReg, bReg)
+                nandCarryWithRegIntoCarry(aReg.name, bReg.name)
 
                 emit("@imm $clobReg, $block")
                 emit("bnc $clobReg")
@@ -270,7 +277,7 @@ class UA16Env(
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfLess(a: A, b: B, block: String) {
         a.useInReg(this) { aReg ->
             b.useInReg(this) { bReg ->
-                emit("ltu $aReg, $bReg")
+                emit("ltu ${aReg.name}, ${bReg.name}")
                 emit("inv")
                 emit("@imm $clobReg, $block")
                 emit("bnc $clobReg")
@@ -281,8 +288,8 @@ class UA16Env(
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfNotEq(a: A, b: B, block: String) {
         a.useInReg(this) { aReg ->
             b.useInReg(this) { bReg ->
-                emit("mov $clobReg, $aReg")
-                emit("sub $clobReg, $bReg")
+                emit("mov $clobReg, ${aReg.name}")
+                emit("sub $clobReg, ${bReg.name}")
                 emit("tst $clobReg")
                 emit("@imm $clobReg, $block")
                 emit("bnc $clobReg")
@@ -293,8 +300,8 @@ class UA16Env(
     override fun <A : Value<UA16Env>, B : Value<UA16Env>> emitJumpIfEq(a: A, b: B, block: String) {
         a.useInReg(this) { aReg ->
             b.useInReg(this) { bReg ->
-                emit("mov $clobReg, $aReg")
-                emit("sub $clobReg, $bReg")
+                emit("mov $clobReg, ${aReg.name}")
+                emit("sub $clobReg, ${bReg.name}")
                 emit("tst $clobReg")
                 emit("inv")
                 emit("@imm $clobReg, $block")
@@ -305,7 +312,7 @@ class UA16Env(
 
     override fun <V : Value<UA16Env>> emitJumpIfNot(bool: V, block: String) {
         bool.useInReg(this) { reg ->
-            emit("tst $reg")
+            emit("tst ${reg.name}")
             emit("inv")
             emit("@imm $clobReg, $block")
             emit("bnc $clobReg")
@@ -314,7 +321,7 @@ class UA16Env(
 
     override fun <V : Value<UA16Env>> emitJumpIf(bool: V, block: String) {
         bool.useInReg(this) { reg ->
-            emit("tst $reg")
+            emit("tst ${reg.name}")
             emit("@imm $clobReg, $block")
             emit("bnc $clobReg")
         }
@@ -322,7 +329,7 @@ class UA16Env(
 
     override fun <V : Value<UA16Env>> emitCall(fn: V) {
         fn.useInReg(this) { reg ->
-            emit("@call $reg")
+            emit("@call ${reg.name}")
         }
     }
 }

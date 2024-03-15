@@ -11,7 +11,6 @@ class UA16Assembler(
     private var next = origin
     private var bytes = ByteArray(0)
     private val refs = mutableListOf<Triple<Int, String, String>>()
-    val source = StringBuilder()
 
     fun finish(): ByteArray {
         refs.forEach { ref ->
@@ -62,18 +61,14 @@ class UA16Assembler(
     override fun label(name: String, flags: Map<String, String?>) {
         if ("orig" in flags) {
             next = parseNum(flags["orig"]!!)
-            source.append("[orig $next]\n")
         }
-        source.append("$name:\n")
         labels[name] = next
     }
 
     override fun instruction(name: String, args: List<String>, flags: Map<String, String?>) {
         if ("orig" in flags) {
             next = parseNum(flags["orig"]!!)
-            source.append("  [orig $next]\n")
         }
-        source.append("  $name ${args.joinToString()}\n")
         when (name) {
             "adc" -> byteBits("0000ddss", "dd" to parseReg(args[0]), "ss" to parseReg(args[1]))
             "sbc" -> byteBits("0001ddss", "dd" to parseReg(args[0]), "ss" to parseReg(args[1]))
@@ -114,10 +109,11 @@ class UA16Assembler(
                 assemble("bnc $addrReg", this)
             }
             "@retnc" -> {
-                val clob = args[0].split("clob=").getOrNull(1) ?: throw Exception("Invalid usage! Usage: @ret clob=reg")
+                val clob = args[0].split("clob=").getOrNull(1) ?: throw Exception("Invalid usage! Usage: @retnc clob=reg")
                 assemble("plr $clob", this)
-                assemble("add $clob, 1", this)
-                assemble("add $clob, 1", this)
+                assemble("clc", this)
+                assemble("adc $clob, 1", this)
+                assemble("adc $clob, 1", this)
                 assemble("bnc $clob", this)
             }
             else -> throw Exception("Unknown instruction or macro $name!")
@@ -127,9 +123,7 @@ class UA16Assembler(
     override fun data(bytes: ByteArray, flags: Map<String, String?>) {
         if ("orig" in flags) {
             next = parseNum(flags["orig"]!!)
-            source.append("  [orig $next]\n")
         }
-        source.append("  db ${bytes.joinToString()}\n")
         data(bytes)
     }
 }

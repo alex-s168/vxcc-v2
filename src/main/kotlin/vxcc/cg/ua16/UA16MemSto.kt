@@ -36,47 +36,87 @@ class UA16MemSto(
         UA16MemSto(flags, offset, addrGetIntoReg)
 
     override fun emitZero(env: UA16Env) {
-        TODO("Not yet implemented")
+        env.emit("clc")
+        env.emit("fwc ${env.clobReg}")
+        env.memSet(this, UA16Reg(env.clobReg, 16), flags.totalWidth / 8)
     }
 
     override fun emitMov(env: UA16Env, dest: Storage<UA16Env>) {
-        TODO()
-    }
-
-    override fun <V : Value<UA16Env>> emitMask(env: UA16Env, mask: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
+        when (dest) {
+            is UA16MemSto -> {
+                require(dest.flags.totalWidth == flags.totalWidth)
+                env.memCpy(this, dest, flags.totalWidth)
+            }
+            else -> {
+                require(env.makeRegSize(flags.totalWidth) == flags.totalWidth)
+                val oflags = env.flagsOf(dest)
+                require(oflags.totalWidth == flags.totalWidth)
+                useAddrInReg(env) { addrReg ->
+                    dest.useInRegWriteBack(env, copyInBegin = false) { dreg ->
+                        when (oflags.totalWidth) {
+                            8 -> env.emit("lod ${dreg.name}, ${addrReg.name}")
+                            16 -> {
+                                env.emit("lod ${dreg.name}, ${addrReg.name}")
+                                env.unsetCarry()
+                                env.emit("adc ${addrReg.name}, 1")
+                                env.emit("lod ${dreg.name}, ${addrReg.name}")
+                            }
+                            else -> throw Exception("wtf")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun reduced(env: UA16Env, new: Owner.Flags): Value<UA16Env> =
         reducedStorage(env, new)
 
-    override fun <V : Value<UA16Env>> emitAdd(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
+    private fun <V : Value<UA16Env>> binary(env: UA16Env, other: V, dest: Storage<UA16Env>, op: (UA16Reg, Value<UA16Env>, Storage<UA16Env>) -> Unit) {
+        useInRegOrSpecific(env, env.clobReg) {
+            op(it, if (other == this) it else other, if (dest == this) it else dest)
+        }
     }
 
-    override fun <V : Value<UA16Env>> emitSub(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> emitMask(env: UA16Env, mask: V, dest: Storage<UA16Env>) =
+        binary(env, mask, dest) { a, b, o ->
+            a.emitMask(env, b, o)
+        }
 
-    override fun <V : Value<UA16Env>> emitMul(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> emitAdd(env: UA16Env, other: V, dest: Storage<UA16Env>) =
+        binary(env, other, dest) { a, b, o ->
+            a.emitAdd(env, b, o)
+        }
 
-    override fun <V : Value<UA16Env>> emitSignedMul(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> emitSub(env: UA16Env, other: V, dest: Storage<UA16Env>) =
+        binary(env, other, dest) { a, b, o ->
+            a.emitSub(env, b, o)
+        }
 
-    override fun <V : Value<UA16Env>> emitShiftLeft(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> emitMul(env: UA16Env, other: V, dest: Storage<UA16Env>) =
+        binary(env, other, dest) { a, b, o ->
+            a.emitMul(env, b, o)
+        }
 
-    override fun <V : Value<UA16Env>> emitShiftRight(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> emitSignedMul(env: UA16Env, other: V, dest: Storage<UA16Env>) =
+        binary(env, other, dest) { a, b, o ->
+            a.emitSignedMul(env, b, o)
+        }
 
-    override fun <V : Value<UA16Env>> emitExclusiveOr(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
-    }
+    override fun <V : Value<UA16Env>> emitShiftLeft(env: UA16Env, other: V, dest: Storage<UA16Env>) =
+        binary(env, other, dest) { a, b, o ->
+            a.emitShiftLeft(env, b, o)
+        }
+
+    override fun <V : Value<UA16Env>> emitShiftRight(env: UA16Env, other: V, dest: Storage<UA16Env>) =
+        binary(env, other, dest) { a, b, o ->
+            a.emitShiftRight(env, b, o)
+        }
+
+    override fun <V : Value<UA16Env>> emitExclusiveOr(env: UA16Env, other: V, dest: Storage<UA16Env>) =
+        binary(env, other, dest) { a, b, o ->
+            a.emitExclusiveOr(env, b, o)
+        }
 
     override fun offsetBytes(offset: Int): MemStorage<UA16Env> =
         UA16MemSto(flags, this.offset + offset, addrGetIntoReg)

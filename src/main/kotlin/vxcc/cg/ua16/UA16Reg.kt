@@ -1,9 +1,6 @@
 package vxcc.cg.ua16
 
-import vxcc.cg.AbstractScalarValue
-import vxcc.cg.Owner
-import vxcc.cg.Storage
-import vxcc.cg.Value
+import vxcc.cg.*
 import vxcc.cg.fake.DefArrayIndexImpl
 import vxcc.cg.fake.DefFunOpImpl
 import vxcc.cg.fake.DefStaticOpImpl
@@ -19,7 +16,18 @@ class UA16Reg(
 {
     override fun emitMov(env: UA16Env, dest: Storage<UA16Env>) {
         when (dest) {
-            is UA16MemSto -> TODO()
+            is UA16MemSto -> dest.useAddrInReg(env) { addr ->
+                when (width) {
+                    8 -> env.emit("sto ${addr.name}, $name")
+                    16 -> {
+                        env.emit("sto ${addr.name}, $name")
+                        env.unsetCarry()
+                        env.emit("adc ${addr.name}, 1")
+                        env.emit("sto ${addr.name}, $name")
+                    }
+                    else -> throw Exception("wtf")
+                }
+            }
             else -> dest.useInRegWriteBack(env, copyInBegin = false) { dreg ->
                 env.emit("mov $dreg, $name")
             }
@@ -35,11 +43,60 @@ class UA16Reg(
     }
 
     override fun <V : Value<UA16Env>> emitAdd(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
+        if (dest != this) {
+            other.emitMov(env, dest)
+            dest.emitAdd(env, this, dest)
+            return
+        }
+
+        when (other) {
+            is UA16Immediate -> {
+                if (other.value <= (if (env.optMode == Env.OptMode.SIZE) 8 else 4)) {
+                    env.unsetCarry()
+                    repeat(other.value.toInt()) {
+                        env.emit("adc $name, 1")
+                    }
+                } else {
+                    other.useInReg(env) { reg ->
+                        emitAdd(env, reg, this)
+                    }
+                }
+            }
+            is UA16Reg -> {
+                env.unsetCarry()
+                env.emit("adc $name, ${other.name}")
+            }
+            else -> other.useInReg(env) { reg ->
+                emitAdd(env, reg, this)
+            }
+        }
     }
 
     override fun <V : Value<UA16Env>> emitSub(env: UA16Env, other: V, dest: Storage<UA16Env>) {
-        TODO("Not yet implemented")
+        if (dest != this) {
+            TODO()
+            return
+        }
+
+        when (other) {
+            is UA16Immediate -> {
+                if (other.value <= (if (env.optMode == Env.OptMode.SIZE) 8 else 4)) {
+                    repeat(other.value.toInt()) {
+                        env.emit("sbc $name, 1")
+                    }
+                } else {
+                    other.useInReg(env) { reg ->
+                        emitAdd(env, reg, this)
+                    }
+                }
+            }
+            is UA16Reg -> {
+                env.emit("sbc $name, ${other.name}")
+            }
+            else -> other.useInReg(env) { reg ->
+                emitAdd(env, reg, this)
+            }
+        }
     }
 
     override fun <V : Value<UA16Env>> emitMul(env: UA16Env, other: V, dest: Storage<UA16Env>) {
@@ -67,6 +124,7 @@ class UA16Reg(
     }
 
     override fun emitZero(env: UA16Env) {
-        TODO("Not yet implemented")
+        env.emit("clc")
+        env.emit("fwc $name")
     }
 }

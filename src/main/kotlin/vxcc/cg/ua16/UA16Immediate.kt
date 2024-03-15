@@ -18,7 +18,7 @@ class UA16Immediate(
 {
     override fun emitMov(env: UA16Env, dest: Storage<UA16Env>) {
         dest.useInRegWriteBack(env, copyInBegin = false) { dreg ->
-            env.emit("@imm $dreg, $value")
+            env.emit("@imm ${dreg.name}, $value")
         }
     }
 
