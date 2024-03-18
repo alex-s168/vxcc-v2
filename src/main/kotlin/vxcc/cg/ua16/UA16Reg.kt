@@ -82,7 +82,7 @@ class UA16Reg(
             is UA16Immediate -> {
                 if (other.value <= (if (env.optMode == Env.OptMode.SIZE) 8 else 4)) {
                     repeat(other.value.toInt()) {
-                        env.emit("sbc $name, 1")
+                        env.emit("@sbc $name, 1, clob=${env.clobReg}")
                     }
                 } else {
                     other.useInReg(env) { reg ->
@@ -91,7 +91,7 @@ class UA16Reg(
                 }
             }
             is UA16Reg -> {
-                env.emit("sbc $name, ${other.name}")
+                env.emit("@sbc $name, ${other.name}, clob=${env.clobReg}")
             }
             else -> other.useInReg(env) { reg ->
                 emitAdd(env, reg, this)

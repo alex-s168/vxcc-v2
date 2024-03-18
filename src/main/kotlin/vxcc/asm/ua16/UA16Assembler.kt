@@ -71,7 +71,7 @@ class UA16Assembler(
         }
         when (name) {
             "adc" -> byteBits("0000ddss", "dd" to parseReg(args[0]), "ss" to parseReg(args[1]))
-            "sbc" -> byteBits("0001ddss", "dd" to parseReg(args[0]), "ss" to parseReg(args[1]))
+            "not" -> byteBits("0001ddss", "dd" to parseReg(args[0]), "ss" to parseReg(args[1]))
             "ec9" -> byteBits("0010..ss", "ss" to parseReg(args[0]))
             "fwc" -> byteBits("0011..dd", "dd" to parseReg(args[0]))
             "tst" -> byteBits("0100..ss", "ss" to parseReg(args[0]))
@@ -109,12 +109,25 @@ class UA16Assembler(
                 assemble("bnc $addrReg", this)
             }
             "@retnc" -> {
-                val clob = args[0].split("clob=").getOrNull(1) ?: throw Exception("Invalid usage! Usage: @retnc clob=reg")
+                if (!args[0].startsWith("clob="))
+                    throw Exception("Invalid usage! Usage: @retnc clob=reg")
+                val clob = args[0].substringAfter("clob=")
                 assemble("plr $clob", this)
                 assemble("clc", this)
                 assemble("adc $clob, 1", this)
                 assemble("adc $clob, 1", this)
                 assemble("bnc $clob", this)
+            }
+            "@sbc" -> {
+                val dest = args[0]
+                val src = args[1]
+                if (!args[2].startsWith("clob="))
+                    throw Exception("Invalid usage! Usage: @sbc dest, src, clob=reg")
+                val clob = args[2].substringAfter("clob=")
+
+                assemble("not $clob, $src", this)
+                assemble("adc $clob, 1", this)
+                assemble("adc $dest, $clob", this)
             }
             else -> throw Exception("Unknown instruction or macro $name!")
         }
