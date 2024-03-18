@@ -1,5 +1,6 @@
 package vxcc.cg.x86
 
+import vxcc.arch.x86.X86Target
 import vxcc.cg.*
 import vxcc.cg.fake.DefMemOpImpl
 import vxcc.cg.fake.FakeBitSlice

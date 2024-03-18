@@ -1,5 +1,6 @@
 package vxcc.cg.ua16
 
+import vxcc.arch.ua16.UA16Target
 import vxcc.asm.assemble
 import vxcc.asm.ua16.UA16Assembler
 import vxcc.cg.*
@@ -10,7 +11,8 @@ import vxcc.cg.fake.FakeVec
 // TODO: bit slice immediates -> static alloc
 
 class UA16Env(
-    orig: Int
+    orig: Int,
+    val target: UA16Target
 ): DefMemOpImpl<UA16Env> {
     override val source = StringBuilder()
     val assembler = UA16Assembler(orig)

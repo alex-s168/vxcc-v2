@@ -2,9 +2,9 @@ import vxcc.asm.assemble
 import vxcc.asm.ua16.UA16Assembler
 import vxcc.cg.Env
 import vxcc.cg.ua16.UA16Env
-import vxcc.cg.ua16.UA16Target
+import vxcc.arch.ua16.UA16Target
 import vxcc.cg.x86.X86Env
-import vxcc.cg.x86.X86Target
+import vxcc.arch.x86.X86Target
 import java.io.File
 
 fun argParse(argsIn: Array<String>): Map<String, String?> {

@@ -1,4 +1,4 @@
-package vxcc.cg.x86
+package vxcc.arch.x86
 
 import vxcc.cg.AbstractTarget
 
