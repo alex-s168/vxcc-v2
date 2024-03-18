@@ -76,3 +76,7 @@ This will hopefully change in the future.
 
 ## Frontends for the IR
 - None currently
+
+## CLI Usage
+First run `./gradlew installDist`
+and then you will find a sh or batch script in `build/install/vxcc-v2/bin` which you can run

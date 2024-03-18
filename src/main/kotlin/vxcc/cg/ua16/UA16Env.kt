@@ -12,7 +12,7 @@ import vxcc.cg.fake.FakeVec
 class UA16Env(
     orig: Int
 ): DefMemOpImpl<UA16Env> {
-    val source = StringBuilder()
+    override val source = StringBuilder()
     val assembler = UA16Assembler(orig)
 
     fun emit(asm: String) {
@@ -41,6 +41,10 @@ class UA16Env(
         registers.toList().first { it.second == null }.first
 
     override fun forceAllocReg(flags: Owner.Flags, name: String): Owner<UA16Env> {
+        if (name == "static") {
+            return Owner(Either.ofB(staticAlloc(flags.totalWidth / 8, null, flags)), flags)
+        }
+
         registers[name]?.let { old ->
             if (old.shouldBeDestroyed) {
                 old.storage!!.flatten().onDestroy(this)

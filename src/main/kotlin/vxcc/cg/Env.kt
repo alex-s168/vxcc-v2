@@ -1,6 +1,10 @@
 package vxcc.cg
 
+import vxcc.ir.IrGlobalScope
+import vxcc.ir.ir
+
 interface Env<T: Env<T>> {
+    val source: StringBuilder
     fun emitRet()
     fun emitCall(fn: String)
     fun <V: Value<T>> emitCall(fn: V)
@@ -15,6 +19,7 @@ interface Env<T: Env<T>> {
     fun <A: Value<T>, B: Value<T>> emitJumpIfSignedGreater(a: A, b: B, block: String)
 
     fun forceIntoReg(owner: Owner<T>, name: String)
+    /** if `name` is `static` then it needs to be statically allocated instead */
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
     fun alloc(flags: Owner.Flags): Owner<T>
     fun allocHeated(flags: Owner.Flags): Owner<T> =
@@ -64,6 +69,10 @@ interface Env<T: Env<T>> {
     fun comment(comment: String)
 
     fun finish()
+
+    fun ir(lines: Iterator<String>, ctx: IrGlobalScope<T> = IrGlobalScope(), verbose: Boolean = false) {
+        ir<T>(lines, this as T, ctx, verbose)
+    }
 
     val optimal: Optimal<T>
 

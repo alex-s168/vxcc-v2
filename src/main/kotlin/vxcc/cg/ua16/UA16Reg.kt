@@ -44,6 +44,7 @@ class UA16Reg(
 
     override fun <V : Value<UA16Env>> emitAdd(env: UA16Env, other: V, dest: Storage<UA16Env>) {
         if (dest != this) {
+            // TODO: might cause problems
             other.emitMov(env, dest)
             dest.emitAdd(env, this, dest)
             return

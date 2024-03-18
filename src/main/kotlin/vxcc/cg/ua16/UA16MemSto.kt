@@ -86,6 +86,7 @@ class UA16MemSto(
     private fun <V : Value<UA16Env>> binary(env: UA16Env, other: V, dest: Storage<UA16Env>, op: (UA16Reg, Value<UA16Env>, Storage<UA16Env>) -> Unit) {
         useInRegOrSpecific(env, env.clobReg) {
             op(it, if (other == this) it else other, if (dest == this) it else dest)
+            it.emitMov(env, this)
         }
     }
 

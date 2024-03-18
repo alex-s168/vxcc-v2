@@ -30,9 +30,15 @@ fun Value<X86Env>.getWidth(): Int =
 fun Value<X86Env>.useInGPReg(env: X86Env, block: (Reg) -> Unit) =
     useInReg(env, Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT), block)
 
-fun Value<X86Env>.useInReg(env: X86Env, flags: Owner.Flags, block: (Reg) -> Unit) =
+fun Value<X86Env>.useInReg(env: X86Env, flags: Owner.Flags, block: (Reg) -> Unit) {
     if (this is Reg) {
         block(this)
+    } else if (this is FakeBitSlice) {
+        this.zeroExtended
+            .computeIfAbsent(env, this::compute)
+            .storage!!
+            .flatten()
+            .useInReg(env, flags, block)
     } else {
         val reg = env.forceAllocReg(flags)
         val regSto = reg.storage!!.flatten()
@@ -40,6 +46,7 @@ fun Value<X86Env>.useInReg(env: X86Env, flags: Owner.Flags, block: (Reg) -> Unit
         block(regSto.asReg())
         env.dealloc(reg)
     }
+}
 
 /**
  * If it is not stored in a reg, moves it into a reg
