@@ -3,6 +3,7 @@ package vxcc.cg.ua16
 import vxcc.cg.Storage
 import vxcc.cg.Value
 import vxcc.cg.flatten
+import kotlin.runCatching
 
 fun Value<UA16Env>.useInReg(env: UA16Env, block: (UA16Reg) -> Unit) {
     if (this is UA16Reg) {

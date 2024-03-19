@@ -29,7 +29,7 @@ class UA16Reg(
                 }
             }
             else -> dest.useInRegWriteBack(env, copyInBegin = false) { dreg ->
-                env.emit("mov $dreg, $name")
+                env.emit("mov ${dreg.name}, $name")
             }
         }
     }

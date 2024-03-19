@@ -40,7 +40,7 @@ class UA16Env(
     )
 
     fun firstFreeReg(): String =
-        registers.toList().first { it.second == null }.first
+        registers.toList().firstOrNull { it.second == null }?.first ?: throw Exception("no free registers")
 
     override fun forceAllocReg(flags: Owner.Flags, name: String): Owner<UA16Env> {
         if (name == "static") {
