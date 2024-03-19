@@ -4,6 +4,7 @@ import vxcc.cg.*
 import vxcc.cg.fake.DefArrayIndexImpl
 import vxcc.cg.fake.DefFunOpImpl
 import vxcc.cg.fake.DefStaticOpImpl
+import kotlin.arrayOf
 
 class UA16MemSto(
     val flags: Owner.Flags,
@@ -56,7 +57,15 @@ class UA16MemSto(
         when (dest) {
             is UA16MemSto -> {
                 require(dest.flags.totalWidth == flags.totalWidth)
-                env.memCpy(this, dest, flags.totalWidth)
+                if (flags.totalWidth in arrayOf(8, 16)) {
+                    val temp = env.forceAllocReg(flags, env.firstFreeReg())
+                    val tempSto = temp.storage!!.flatten()
+                    this.emitMov(env, tempSto)
+                    tempSto.emitMov(env, dest)
+                    env.dealloc(temp)
+                } else {
+                    env.memCpy(this, dest, flags.totalWidth)
+                }
             }
             else -> {
                 require(env.makeRegSize(flags.totalWidth) == flags.totalWidth)

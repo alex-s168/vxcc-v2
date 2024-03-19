@@ -63,19 +63,23 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
     }
 
     override fun instruction(name: String, args: List<String>, flags: Map<String, String?>) {
-        if ("orig" in flags)
-            next = parseNum(flags["orig"]!!)
+        try {
+            if ("orig" in flags)
+                next = parseNum(flags["orig"]!!)
 
-        if (!flags.keys.all { it == "orig" })
-            throw Exception("Unexpected flag! Allowed here: orig")
+            if (!flags.keys.all { it == "orig" })
+                throw Exception("Unexpected flag! Allowed here: orig")
 
-        val inst = instructions[name] ?: throw Exception("Instruction $name not found!")
+            val inst = instructions[name] ?: throw Exception("Instruction $name not found!")
 
-        inst.requiresExt.firstOrNull { it !in target.targetFlags }?.let {
-            throw Exception("Required target flag $it for instruction $inst not set!")
+            inst.requiresExt.firstOrNull { it !in target.targetFlags }?.let {
+                throw Exception("Required target flag $it for instruction $inst not set!")
+            }
+
+            inst.parse(this as T, args)
+        } catch (e: Exception) {
+            throw Exception("Error in instruction \"$name\": ${e.message}")
         }
-
-        inst.parse(this as T, args)
     }
 
     protected fun asm(str: String) =

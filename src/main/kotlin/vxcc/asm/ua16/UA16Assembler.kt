@@ -51,10 +51,10 @@ class UA16Assembler(
                 byteBits("1010vvvv", "vvvv" to parseNum(args[0]))
             },
             "phr" to Instruction { args ->
-                byteBits("1011.0rr", "rr" to parseReg(args[0]))
+                byteBits("1011.0rr", "rr" to parseReg(args[0], true))
             },
             "plr" to Instruction { args ->
-                byteBits("1011.1rr", "rr" to parseReg(args[0]))
+                byteBits("1011.1rr", "rr" to parseReg(args[0], true))
             },
             "@ext" to Instruction { args ->
                 byteBits("1100eeee", "eeee" to parseNum(args[0]))
@@ -116,7 +116,7 @@ class UA16Assembler(
     override fun finish(): ByteArray {
         refs.forEach { ref ->
             next = ref.first
-            var value = labels[ref.second]!!.pos
+            var value = (labels[ref.second] ?: throw Exception("Label \"${ref.second}\" not found!")).pos
             val dest = ref.third
             repeat(4) {
                 assemble("sbr ${value and 0xF}", this)
@@ -135,7 +135,7 @@ class UA16Assembler(
             "r2" -> 2
             "c1" -> throw Exception("'c1' should not be used in assembly! Use '1' instead!")
             "1" -> if (!selectPc) 3 else throw Exception("Can not use constant 1 for this instruction; program counter register selected instead!")
-            "pc" -> if (selectPc) 3 else throw Exception("Can nto use program counter register for this instruction; constant 1 is selected instead!")
+            "pc" -> if (selectPc) 3 else throw Exception("Can not use program counter register for this instruction; constant 1 is selected instead!")
             else -> throw Exception("Unknown register $name!")
         }
 }

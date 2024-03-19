@@ -226,14 +226,14 @@ class UA16Env(
     }
 
     override fun emitCall(fn: String) {
-        unsetCarry()
         emit("@imm $clobReg, $fn")
+        unsetCarry()
         emit("@callnc $clobReg")
     }
 
     override fun emitJump(block: String) {
-        unsetCarry()
         emit("@imm $clobReg, $block")
+        unsetCarry()
         emit("bnc $clobReg")
     }
 
