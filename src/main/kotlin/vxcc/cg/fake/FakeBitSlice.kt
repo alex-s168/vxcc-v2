@@ -14,6 +14,7 @@ open class FakeBitSlice<E: Env<E>>(
     PullingStorage<E>
 {
     val zeroExtended = mutableMapOf<E, Owner<E>>()
+    val defer = mutableListOf<() -> Unit>()
 
     fun compute(env: E): Owner<E> {
         val o = env.alloc(env.nextUpNative(flags))
@@ -26,6 +27,7 @@ open class FakeBitSlice<E: Env<E>>(
 
     override fun onDestroy(env: E) {
         zeroExtended.remove(env)?.let { env.dealloc(it) }
+        defer.forEach { it() }
     }
 
     override fun reducedStorage(env: E, flags: Owner.Flags): Storage<E> =

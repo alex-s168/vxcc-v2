@@ -1,0 +1,10 @@
+type int = :int w:16
+
+export fn _start
+    %counter = int 0
+:loop
+    %counter = int [add, %counter, int 1]
+    [brl, :loop, %counter, int 100]
+
+    ~ %counter
+end

@@ -1,5 +1,6 @@
 package vxcc.cg.x86
 
+import vxcc.arch.x86.X86Target
 import vxcc.cg.*
 import vxcc.cg.fake.DefMemOpImpl
 import vxcc.cg.fake.FakeBitSlice
@@ -7,10 +8,14 @@ import vxcc.cg.fake.FakeVec
 import kotlin.math.ceil
 
 data class X86Env(
-    val target: Target
+    val target: X86Target
 ): DefMemOpImpl<X86Env> {
-    fun emit(a: String) =
-        println(a)
+    override val source = StringBuilder()
+
+    fun emit(a: String) {
+        source.append(a)
+        source.append('\n')
+    }
 
     fun emitBytes(bytes: ByteArray) =
         emit("  db ${bytes.joinToString { "0x${it.toString(16)}" }}")
@@ -18,7 +23,7 @@ data class X86Env(
     init {
         if (target.amd64_v1)
             emit("bits 64")
-        else if (target.is32)
+        else if (target.ia32)
             emit("bits 32")
         else
             emit("bits 16")
@@ -60,24 +65,24 @@ data class X86Env(
 
     override val optimal = object: Optimal<X86Env> {
         /** overall fastest boolean type */
-        override val boolFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.INT)
+        override val boolFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.ia32) 32 else 16, null, Type.INT)
 
         /** overall smallest boolean type */
         override val boolSmall = boolFast
 
         /** fastest boolean type if speed opt, otherwise smallest boolean type */
-        override val bool = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+        override val bool get() = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
 
         /** overall fastest int type */
-        override val intFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else 16, null, Type.INT)
+        override val intFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.ia32) 32 else 16, null, Type.INT)
 
         /** overall smallest int type */
         override val intSmall = intFast
 
         /** fastest int type if speed opt, otherwise smallest int type */
-        override val int = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+        override val int get() = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
 
-        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.is32) 32 else if (target.amd64_v1) 64 else 16, null, Type.INT)
+        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.ia32) 32 else if (target.amd64_v1) 64 else 16, null, Type.INT)
     }
 
     private var fpuUse: Boolean = false
@@ -223,7 +228,10 @@ data class X86Env(
         forceAllocReg(getRegByIndex(reg), flags)
 
     override fun forceAllocReg(flags: Owner.Flags, name: String): Owner<X86Env> =
-        forceAllocReg(flags, Reg.fromName(name).asIndex())
+        if (name == "static")
+            Owner(Either.ofB(staticAlloc(flags.totalWidth / 8, null, flags)), flags)
+        else
+            forceAllocReg(flags, Reg.fromName(name).asIndex())
 
     override fun forceIntoReg(owner: Owner<X86Env>, name: String) {
         val sto = owner.storage!!.flatten()
@@ -248,18 +256,18 @@ data class X86Env(
         getBestAvailableReg(flags)?.let { forceAllocReg(it, flags) }
             ?: throw Exception("No compatible register for $flags")
 
-    private val spRegName = if (target.amd64_v1) "rsp" else if (target.is32) "esp" else "sp"
-    private val bpRegName = if (target.amd64_v1) "rbp" else if (target.is32) "ebp" else "bp"
+    private val spRegName = if (target.amd64_v1) "rsp" else if (target.ia32) "esp" else "sp"
+    private val bpRegName = if (target.amd64_v1) "rbp" else if (target.ia32) "ebp" else "bp"
 
     private var nextStackPos = 0
 
     override fun enterFrame() {
-        emit("  push $spRegName")
-        emit("  mov $bpRegName, $spRegName")
+        // emit("  push $spRegName")
+        // emit("  mov $bpRegName, $spRegName")
     }
 
     override fun leaveFrame() {
-        emit("  leave")
+        // emit("  leave")
     }
 
     fun stackAlloc(flagsIn: Owner.Flags): Owner<X86Env> {
@@ -270,7 +278,15 @@ data class X86Env(
     }
 
     override fun alloc(flags: Owner.Flags): Owner<X86Env> {
-        // TODO: consider weird sized ints
+        if (!flags.type.vector) {
+            val rsize = makeRegSize(flags.totalWidth)
+            if (rsize != flags.totalWidth) {
+                val a = alloc(flags.copy(totalWidth = rsize))
+                val slice = FakeBitSlice(a.storage!!.flatten(), flags)
+                slice.defer += { dealloc(a) }
+                return Owner(Either.ofB(slice), flags)
+            }
+        }
 
         if (regAlloc) {
             val reg = allocReg(flags)
@@ -306,12 +322,12 @@ data class X86Env(
     override fun makeRegSize(size: Int): Int =
         if (size <= 8) 8
         else if (size <= 16) 16
-        else if (size <= 32) 32
-        else if (size <= 64) 64
-        else if (size <= 128) 128
-        else if (size <= 256) 256
-        else if (size <= 512) 512
-        else size
+        else if (size <= 32 && target.ia32) 32
+        else if (size <= 64 && (target.amd64_v1 || target.mmx)) 64
+        else if (size <= 128 && target.sse1) 128
+        else if (size <= 256 && target.avx2) 256
+        else if (size <= 512 && target.avx512f) 512
+        else throw Exception("above native register size!")
 
     override fun nextUpNative(flags: Owner.Flags): Owner.Flags =
         flags.copy(totalWidth = makeRegSize(flags.totalWidth))
@@ -343,7 +359,7 @@ data class X86Env(
             else if (target.avx2) 32
             else if (target.sse1) 16
             else if (target.mmx || target.amd64_v1) 8
-            else if (target.is32) 4
+            else if (target.ia32) 4
             else 2
         } else 2
         staticAllocs += Triple(name, align, arr)
