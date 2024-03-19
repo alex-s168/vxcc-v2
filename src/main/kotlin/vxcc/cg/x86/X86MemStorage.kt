@@ -30,15 +30,18 @@ class X86MemStorage(
                 if (dest.getWidth() != flags.totalWidth)
                     throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
 
-                if (dest.getWidth() in listOf(8, 16, 32)) { // TODO: other reg sizes dependent on target flags
+                val sizes = mutableListOf(8, 16)
+                if (env.target.is32) sizes.add(32)
+                if (env.target.amd64_v1) sizes.add(64)
+                if (dest.getWidth() in sizes) { // TODO: other reg sizes dependent on target flags
                     val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, dest.getWidth(), null, Type.INT))
                     val regSto = reg.storage!!.flatten()
                     emitMov(env, regSto)
                     regSto.emitMov(env, dest)
                     env.dealloc(reg)
+                } else {
+                    env.memCpy(this, dest, flags.totalWidth)
                 }
-
-                env.memCpy(this, dest, flags.totalWidth)
             }
 
             is PullingStorage<X86Env> -> dest.emitPullFrom(env, this)
