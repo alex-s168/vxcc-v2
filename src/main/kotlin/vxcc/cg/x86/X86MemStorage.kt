@@ -31,7 +31,7 @@ class X86MemStorage(
                     throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
 
                 val sizes = mutableListOf(8, 16)
-                if (env.target.is32) sizes.add(32)
+                if (env.target.ia32) sizes.add(32)
                 if (env.target.amd64_v1) sizes.add(64)
                 if (dest.getWidth() in sizes) { // TODO: other reg sizes dependent on target flags
                     val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, dest.getWidth(), null, Type.INT))

@@ -84,6 +84,7 @@ fun main(argsIn: Array<String>) {
         else -> throw Exception("Unknown target $targetMajor!")
     }
     target.targetFlags += targetFlags.split(';')
+    println(target.targetFlags)
     val opt = args["opt"]?.let {
         when (it) {
             "size" -> Env.OptMode.SIZE

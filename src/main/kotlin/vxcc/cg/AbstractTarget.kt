@@ -16,8 +16,10 @@ abstract class AbstractTarget {
             val tg = thisRef as AbstractTarget
 
             default?.let {
-                default = null
-                tg.targetFlags += property.name
+                if (it) {
+                    default = null
+                    tg.targetFlags += property.name
+                }
             }
 
             return property.name in tg.targetFlags

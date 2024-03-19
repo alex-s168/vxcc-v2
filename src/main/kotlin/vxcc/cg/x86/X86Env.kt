@@ -12,22 +12,23 @@ data class X86Env(
 ): DefMemOpImpl<X86Env> {
     override val source = StringBuilder()
 
+    private val lazyBitWidth by lazy {
+        if (target.amd64_v1)
+            source.append("bits 64\n")
+        else if (target.ia32)
+            source.append("bits 32\n")
+        else
+            source.append("bits 16\n")
+    }
+
     fun emit(a: String) {
+        lazyBitWidth
         source.append(a)
         source.append('\n')
     }
 
     fun emitBytes(bytes: ByteArray) =
         emit("  db ${bytes.joinToString { "0x${it.toString(16)}" }}")
-
-    init {
-        if (target.amd64_v1)
-            emit("bits 64")
-        else if (target.ia32)
-            emit("bits 32")
-        else
-            emit("bits 16")
-    }
 
     private val registers = mutableMapOf<Reg.Index, Obj<Owner<X86Env>?>>()
 
