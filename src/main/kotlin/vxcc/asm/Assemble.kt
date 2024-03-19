@@ -1,14 +1,19 @@
 package vxcc.asm
 
 fun parseNum(num: String): Int =
-    if (num.startsWith("h"))
-        num.toInt(16)
-    else if (num.startsWith("b"))
-        num.toInt(2)
-    else if (num.startsWith("o"))
-        num.toInt(8)
+    if (num.startsWith('-'))
+        -parseNum(num.substring(1))
+    else if (num.startsWith('+'))
+        parseNum(num.substring(1))
     else
-        num.toInt(10)
+        if (num.startsWith("h"))
+            num.toInt(16)
+        else if (num.startsWith("b"))
+            num.toInt(2)
+        else if (num.startsWith("o"))
+            num.toInt(8)
+        else
+            num.toInt(10)
 
 fun assemble(code: String, asm: Assembler) {
     val lines = code.lines()
