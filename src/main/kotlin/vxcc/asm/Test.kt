@@ -1,14 +1,16 @@
 package vxcc.asm
 
-import vxcc.asm.ua16.UA16Assembler
+import vxcc.arch.etca.ETCATarget
+import vxcc.asm.etca.ETCAAssembler
 
 fun main() {
-    val asm = UA16Assembler(200)
+    val asm = ETCAAssembler(0, ETCATarget())
     val code = """
-        @imm r0, b
-        
+        jmp b
+        mov r0, [r1]
         b:
+        
     """.trimIndent()
     assemble(code, asm)
-    println(asm.finish().joinToString())
+    println(asm.finish().joinToString { it.toUByte().toString(2).padStart(8, '0') })
 }

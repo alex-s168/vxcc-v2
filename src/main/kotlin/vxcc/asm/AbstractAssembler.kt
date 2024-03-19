@@ -1,5 +1,6 @@
 package vxcc.asm
 
+import vxcc.asm.etca.ETCAAssembler
 import vxcc.cg.AbstractTarget
 
 abstract class AbstractAssembler<T: AbstractAssembler<T>>(
@@ -82,4 +83,17 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
 
     protected fun parseLabelOrNum(name: String): Int =
         labels[name]?.pos ?: parseNum(name)
+
+    companion object {
+        @JvmStatic
+        protected fun depInstrName(old: String, new: String): Instruction<ETCAAssembler> =
+            Instruction { args ->
+                System.err.println("Deprecated instruction name \"$old\". Use \"$new\" instead.")
+                instruction(new, args, mapOf())
+            }
+
+        @JvmStatic
+        protected fun alias(to: String): Instruction<ETCAAssembler> =
+            Instruction { instruction(to, it, mapOf()) }
+    }
 }

@@ -98,7 +98,7 @@ fun main(argsIn: Array<String>) {
     when (operation) {
         "asm" -> {
             val asm = when (targetMajor) {
-                "ua16" -> UA16Assembler(args["origin"]?.toInt() ?: 0)
+                "ua16" -> UA16Assembler(args["origin"]?.toInt() ?: 0, target as UA16Target)
                 else -> throw Exception("Target does not support assembler!")
             }
             assemble(input.readText(), asm)
@@ -107,7 +107,7 @@ fun main(argsIn: Array<String>) {
         }
         "ir-compile" -> {
             val env = when (targetMajor) {
-                "ua16" -> UA16Env(args["origin"]?.toInt() ?: 0)
+                "ua16" -> UA16Env(args["origin"]?.toInt() ?: 0, target as UA16Target)
                 "x86" -> X86Env(target as X86Target)
                 else -> throw Exception("Target does not support codegen!")
             }

@@ -15,7 +15,7 @@ class UA16Env(
     val target: UA16Target
 ): DefMemOpImpl<UA16Env> {
     override val source = StringBuilder()
-    val assembler = UA16Assembler(orig)
+    val assembler = UA16Assembler(orig, target)
 
     fun emit(asm: String) {
         assemble(asm, assembler)

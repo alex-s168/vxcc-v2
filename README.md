@@ -5,6 +5,7 @@ This repository contains:
 - common codegen utils
 - x86 (and amd64) codegen
 - [ua16](https://github.com/alex-s168/ua16) codegen and assembler
+- [etc.a](https://github.com/ETC-A/etca-spec) assember
 - VXCC-IR frontend
 
 ## Why
