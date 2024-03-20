@@ -1,10 +1,8 @@
+import vxcc.arch.asmForTarget
+import vxcc.arch.envForTarget
+import vxcc.arch.parseTargetStr
 import vxcc.asm.assemble
-import vxcc.asm.ua16.UA16Assembler
 import vxcc.cg.Env
-import vxcc.cg.ua16.UA16Env
-import vxcc.arch.ua16.UA16Target
-import vxcc.cg.x86.X86Env
-import vxcc.arch.x86.X86Target
 import java.io.File
 
 fun argParse(argsIn: Array<String>): Map<String, String?> {
@@ -40,16 +38,22 @@ fun main(argsIn: Array<String>) {
         println("    --opt [mode]          specifies the optimization mode. either \"size\" or \"speed\"")
         println("")
         println("  target:")
-        println("    [major]:[sub]:[flags]")
+        println("    [arch]:[base]:[flags]")
         println("")
         println("    ua16")
         println("      major = \"ua16\"")
         println("      sub = \"\"")
         println("      flags = \"\"")
         println()
+        println("    etca")
+        println("      major = \"etca\"")
+        println("      sub = \"\"")
+        println("      flags = semicolon-seperated list of:")
+        println("        stack")
+        println()
         println("    x86")
         println("      major = \"x86\"")
-        println("      sub = \"\" or \"16\" or \"pentium\" or \"amd64\"")
+        println("      sub = \"16\" or \"i386\" or \"i486\" or \"i586\" or \"i686\" or \"amd64\"")
         println("      flags = semicolon-seperated list of:")
         println("        fpu ia32 mmx sce cx8 cmov fxsr osfxsr")
         println("        sse1 sse2 sse3 ssse3 sse4_1 sse4_2")
@@ -61,30 +65,8 @@ fun main(argsIn: Array<String>) {
         return
     }
     val operation = args[""]!!
-    val (targetMajor, targetSub, targetFlags) = (args["target-file"]?.let { File(it).readText() } ?: args["target"]!!).split(":", limit = 3)
-    val target = when (targetMajor) {
-        "ua16" -> UA16Target().also {
-            if (targetSub != "")
-                throw Exception("Unknown target sub for ua16!")
-        }
-        "x86" -> X86Target().also {
-            when (targetSub) {
-                "" -> Unit
-                "16" -> it.ia32 = false
-                "pentium" -> {
-                    it.ia32 = true
-                    it.fpu = true
-                }
-                "amd64" -> {
-                    it.amd64_v1 = true
-                }
-                else -> throw Exception("Unknown target sub for x86!")
-            }
-        }
-        else -> throw Exception("Unknown target $targetMajor!")
-    }
-    target.targetFlags += targetFlags.split(';')
-    println(target.targetFlags)
+    val target = parseTargetStr(args["target-file"]?.let { File(it).readText() } ?: args["target"]!!)
+    println(target)
     val opt = args["opt"]?.let {
         when (it) {
             "size" -> Env.OptMode.SIZE
@@ -98,20 +80,13 @@ fun main(argsIn: Array<String>) {
     val output = File(args["output"] ?: throw Exception("Output not specified!"))
     when (operation) {
         "asm" -> {
-            val asm = when (targetMajor) {
-                "ua16" -> UA16Assembler(args["origin"]?.toInt() ?: 0, target as UA16Target)
-                else -> throw Exception("Target does not support assembler!")
-            }
+            val asm = asmForTarget(target, args["origin"]?.toInt())
             assemble(input.readText(), asm)
             val bytes = asm.finish()
             output.writeBytes(bytes)
         }
         "ir-compile" -> {
-            val env = when (targetMajor) {
-                "ua16" -> UA16Env(args["origin"]?.toInt() ?: 0, target as UA16Target)
-                "x86" -> X86Env(target as X86Target)
-                else -> throw Exception("Target does not support codegen!")
-            }
+            val env = envForTarget(target, args["origin"]?.toInt())
             env.optMode = opt
 
             val code = input.readText()

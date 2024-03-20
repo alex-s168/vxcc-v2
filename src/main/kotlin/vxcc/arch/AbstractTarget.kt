@@ -1,4 +1,4 @@
-package vxcc.cg
+package vxcc.arch
 
 import kotlin.reflect.KProperty
 
@@ -43,6 +43,17 @@ abstract class AbstractTarget {
         }
     }
 
-    protected fun flag(default: Boolean, onSet: () -> Unit = {}) =
+    protected fun flag(default: Boolean = false, onSet: () -> Unit = {}) =
         FlagProp(default, onSet)
+
+    open val subTargets = mapOf<String, List<String>>()
+
+    fun loadSub(tg: String) {
+        subTargets[tg]?.let {
+            targetFlags += it
+        } ?: throw Exception("Invalid sub-target \"$tg\"! Available: ${subTargets.keys.joinToString { "\"$it\"" }}")
+    }
+
+    override fun toString(): String =
+        "${this::class.simpleName}(${targetFlags.joinToString()})"
 }

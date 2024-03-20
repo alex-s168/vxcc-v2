@@ -1,5 +1,5 @@
 package vxcc.arch.ua16
 
-import vxcc.cg.AbstractTarget
+import vxcc.arch.AbstractTarget
 
 class UA16Target: AbstractTarget()

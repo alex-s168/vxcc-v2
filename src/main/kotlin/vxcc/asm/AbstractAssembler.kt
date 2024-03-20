@@ -1,7 +1,7 @@
 package vxcc.asm
 
 import vxcc.asm.etca.ETCAAssembler
-import vxcc.cg.AbstractTarget
+import vxcc.arch.AbstractTarget
 
 abstract class AbstractAssembler<T: AbstractAssembler<T>>(
     val origin: Int,
