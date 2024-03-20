@@ -46,12 +46,12 @@ abstract class AbstractTarget {
     protected fun flag(default: Boolean = false, onSet: () -> Unit = {}) =
         FlagProp(default, onSet)
 
-    open val subTargets = mapOf<String, List<String>>()
+    abstract val subTargets: Map<String, List<String>>
 
     fun loadSub(tg: String) {
-        subTargets[tg]?.let {
-            targetFlags += it
-        } ?: throw Exception("Invalid sub-target \"$tg\"! Available: ${subTargets.keys.joinToString { "\"$it\"" }}")
+        val st = subTargets[tg]
+            ?: throw Exception("Invalid sub-target \"$tg\"! Available: ${subTargets.keys.joinToString { "\"$it\"" }}")
+        targetFlags += st
     }
 
     override fun toString(): String =

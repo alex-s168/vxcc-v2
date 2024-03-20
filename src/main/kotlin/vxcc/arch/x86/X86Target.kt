@@ -77,7 +77,7 @@ class X86Target: AbstractTarget() {
     override val subTargets: Map<String, List<String>> = mapOf(
         "16" to listOf(""),
         "i386" to listOf("ia32"),
-        "i484" to listOf("ia32", "fpu"),
+        "i486" to listOf("ia32", "fpu"),
         "i586" to listOf("ia32", "fpu"),
         "i686" to listOf("ia32", "fpu", "cmov"),
         "amd64" to listOf("amd64_v1")
