@@ -59,37 +59,83 @@ class ETCAAssembler(
             "readcr" to depInstrName("readcr", "mov"),
             "writecr" to depInstrName("writecr", "mov"),
 
-            "jmp.z" to Instruction { jumpOp(0b0000, it) },
-            "jmp.e" to Instruction { jumpOp(0b0000, it) },
-            "jmp.nz" to Instruction { jumpOp(0b0001, it) },
-            "jmp.ne" to Instruction { jumpOp(0b0001, it) },
-            "jmp.n" to Instruction { jumpOp(0b0010, it) },
-            "jmp.nn" to depInstrName("jmp.nn", "jmp.p"),
-            "jmp.p" to Instruction { jumpOp(0b0011, it) },
-            "jmp.c" to Instruction { jumpOp(0b0100, it) },
-            "jmp.b" to Instruction { jumpOp(0b0100, it) },
-            "jmp.nc" to Instruction { jumpOp(0b0101, it) },
-            "jmp.ae" to Instruction { jumpOp(0b0101, it) },
-            "jmp.o" to Instruction { jumpOp(0b0110, it) },
-            "jmp.no" to Instruction { jumpOp(0b0111, it) },
-            "jmp.be" to Instruction { jumpOp(0b1000, it) },
-            "jmp.a" to Instruction { jumpOp(0b1001, it) },
-            "jmp.l" to Instruction { jumpOp(0b1010, it) },
-            "jmp.ge" to Instruction { jumpOp(0b1011, it) },
-            "jmp.le" to Instruction { jumpOp(0b1100, it) },
-            "jmp.g" to Instruction { jumpOp(0b1101, it) },
-            "jmp" to Instruction { jumpOp(0b1110, it) },
-
             "push" to Instruction(listOf("stack")) { // TODO: immediate mode
-                byteBits("00011101")
-                byteBits("...bbb00", "bbb" to parseReg(it[0]))
+                val a = runCatching { parseReg(it[0]) }.getOrNull()
+                if (a != null) { // reg
+                    byteBits("00011101")
+                    byteBits("110aaa00", "aaa" to a)
+                } else { // imm
+                    byteBits("01011101")
+                    byteBits("110iiiii", "iiiii" to parseNum(it[0]))
+                }
             },
             "pop" to Instruction(listOf("stack")) {
                 byteBits("00011100")
-                byteBits("aaa...00", "aaa" to parseReg(it[0]))
+                byteBits("aaa11000", "aaa" to parseReg(it[0]))
             },
         )
     }
+
+    override fun instruction(name: String, args: List<String>, flags: Map<String, String?>) {
+        try {
+            super.instruction(name, args, flags)
+        } catch (e: Exception) {
+            if (name.startsWith("jmp")) {
+                val cond = parseCond(name.substring(3))
+
+                if (args[0].startsWith('[')) {
+                    if ("stack" !in target.targetFlags)
+                        throw Exception("Required extension \"stack\" for absolute register jmp!")
+                    val reg = parseReg(args[0].drop(1).dropLast(1))
+                    byteBits("10101111")
+                    byteBits("rrr0cccc", "rrr" to reg, "cccc" to cond)
+                } else {
+                    jumpOp(cond, args)
+                }
+            } else if (name.startsWith("call")) {
+                if (args[0].startsWith('[')) {
+                    val cond = parseCond(name.substring(3))
+                    val reg = parseReg(args[0].drop(1).dropLast(1))
+
+                    byteBits("10101111")
+                    byteBits("rrr1cccc", "rrr" to reg, "cccc" to cond)
+                } else {
+                    if (name != "call")
+                        throw Exception("Conditional calls only supported for absolute register calls!")
+
+                    TODO("relative calls")
+                }
+            } else {
+                throw e
+            }
+        }
+    }
+
+    fun parseCond(cond: String): Int =
+        when (cond) {
+            ".z" -> 0b0000
+            ".e" -> 0b0000
+            ".nz" ->0b0001
+            ".ne" ->0b0001
+            ".n" -> 0b0010
+            ".nn" -> throw Exception("Use jmp.p instead of jmp.nn!")
+            ".p" -> 0b0011
+            ".c" -> 0b0100
+            ".b" -> 0b0100
+            ".nc" ->0b0101
+            ".ae" ->0b0101
+            ".o" -> 0b0110
+            ".no" ->0b0111
+            ".be" ->0b1000
+            ".a" -> 0b1001
+            ".l" -> 0b1010
+            ".ge" ->0b1011
+            ".le" ->0b1100
+            ".g" -> 0b1101
+            ".never" -> 0b1111
+            "" -> 0b1110
+            else -> throw Exception("Not a condition suffix $cond")
+        }
 
     fun parseCR(reg: String): Int =
         when (reg) {

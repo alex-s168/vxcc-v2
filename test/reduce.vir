@@ -1,0 +1,8 @@
+type int = :int w:8
+type lint = :int w:16
+
+export fn _start
+    %a = int 1
+    %b = lint 2
+    %c = int [add, %a, int [reduce, %b]]
+end

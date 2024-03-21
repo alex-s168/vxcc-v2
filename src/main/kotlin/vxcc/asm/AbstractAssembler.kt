@@ -30,10 +30,15 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
     }
 
     protected fun byteBits(bitsIn: String, vararg replIn: Pair<String, Int>) {
+        if (bitsIn.length != 8)
+            throw Exception("bitsIn not 8 bits!")
         val repl = mapOf(*replIn)
         var bits = bitsIn.replace('.', '0')
         repl.forEach { (k, v) ->
-            bits = bits.replace(k, v.toString(2))
+            val e = v.toString(2).padStart(k.length, '0')
+            if (e.length != k.length)
+                throw Exception("Too big value")
+            bits = bits.replace(k, e)
         }
         val byte = bits.toUByte(2).toByte()
         data(byteArrayOf(byte))
