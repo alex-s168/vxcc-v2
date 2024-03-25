@@ -1,15 +1,15 @@
 package vxcc.binfmt
 
-import blitz.BitField
-import blitz.Endian
+import blitz.*
 import blitz.collections.ByteVec
-import blitz.toUInt
-import blitz.toUShort
+import vxcc.arch.AbstractTarget
+import vxcc.arch.parseTargetStr
 
 data class VxBin(
-    val target: String,
+    val target: AbstractTarget,
     val flags: Flags,
     val sections: List<Section>,
+    val origin: ULong?,
 ) {
     class Flags: BitField() {
         val linkingFinished by bit(0)
@@ -26,6 +26,7 @@ data class VxBin(
     private data class RawSection(
         val name: String,
         val offset: UInt,
+        val size: UInt,
         val symbols: Map<String, Symbol>,
         val unresolved: List<Reference>,
     )
@@ -39,6 +40,34 @@ data class VxBin(
         val to: String,
         val kind: UByte,
     )
+
+    infix fun link(other: VxBin): VxBin {
+        require(!other.target.compatible(target)) {
+            "Cannot link with executable of incompatible target"
+        }
+
+        // btw: refs are across all sections
+        TODO()
+    }
+
+    fun endLinking() {
+        sections.forEach {
+            it.unresolved.forEach { r ->
+                System.err.println("Unresolved reference to \"${r.to}\" in section \"${it.name}\"!")
+            }
+        }
+
+        if (sections.any { it.unresolved.isNotEmpty() })
+            error("Unresolved symbols during linking!")
+    }
+
+    fun strip() =
+        copy(sections = sections
+            .filter { it.name.startsWith('?') }
+            .map {
+                Section(it.name, mapOf(), it.unresolved, it.bytes)
+            }
+        )
 
     fun write(buf: ByteVec) {
         TODO()
@@ -86,43 +115,55 @@ data class VxBin(
             val flags = Flags()
             flags.decode(buf.popBack())
 
+            val orig = if (flags.pic) null else {
+                val by = ByteArray(8)
+                by.toULong(Endian.LITTLE)
+            }
+
             val rawSections = array {
                 val name = string()
-                val off = byteArrayOf(4)
+
+                val off = ByteArray(4)
                 buf.popBack(off)
                 val offInt = off.toUInt(Endian.LITTLE)
+
+                val size = ByteArray(4)
+                buf.popBack(size)
+                val sizeInt = off.toUInt(Endian.LITTLE)
+
                 val symbols = array {
                     val symName = string()
-                    val symOff = byteArrayOf(4)
+                    val symOff = ByteArray(4)
                     buf.popBack(symOff)
                     val symOffInt = symOff.toUInt(Endian.LITTLE)
                     symName to Symbol(symOffInt)
                 }.toMap()
+
                 val unresolved = array {
                     val symName = string()
-                    val symOff = byteArrayOf(4)
+                    val symOff = ByteArray(4)
                     buf.popBack(symOff)
                     val symOffInt = symOff.toUInt(Endian.LITTLE)
                     val kind = buf.popBack().toUByte()
                     Reference(symOffInt, symName, kind)
                 }
-                RawSection(name, offInt, symbols, unresolved)
+
+                RawSection(name, offInt, sizeInt, symbols, unresolved)
             }
 
             val sections = rawSections.map {
-                // TODO: don't copy everything
                 Section(
                     it.name,
                     it.symbols,
                     it.unresolved,
                     buf.copyIntoArray(
-                        ByteArray(buf.size),
+                        ByteArray(it.size.toInt()),
                         startOff = it.offset.toInt()
                     )
                 )
             }
 
-            return VxBin(target, flags, sections)
+            return VxBin(parseTargetStr(target), flags, sections, orig)
         }
     }
 }

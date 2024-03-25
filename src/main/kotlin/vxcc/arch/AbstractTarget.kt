@@ -56,4 +56,11 @@ abstract class AbstractTarget {
 
     override fun toString(): String =
         "${this::class.simpleName}(${targetFlags.joinToString()})"
+
+    open fun compatible(other: AbstractTarget): Boolean {
+        if (this::class != other::class)
+            return false
+
+        return targetFlags.all { it in other.targetFlags }
+    }
 }
