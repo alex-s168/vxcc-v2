@@ -8,10 +8,16 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    maven {
+        name = "alex's repo"
+        url = uri("http://207.180.202.42:8080/libs")
+        isAllowInsecureProtocol = true
+    }
 }
 
 dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
+    implementation("me.alex_s168:blitz:0.3")
 }
 
 tasks.test {
