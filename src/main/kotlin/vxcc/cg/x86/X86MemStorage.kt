@@ -1,10 +1,11 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
-import vxcc.cg.fake.DefFunOpImpl
-import vxcc.cg.fake.DefStaticLogicOpImpl
-import vxcc.cg.fake.FakeBitSlice
-import vxcc.cg.fake.FakeVec
+import vxcc.cg.utils.DefFunOpImpl
+import vxcc.cg.utils.DefStaticLogicOpImpl
+import vxcc.cg.utils.FakeBitSlice
+import vxcc.cg.utils.FakeVec
+import vxcc.utils.flatten
 
 class X86MemStorage(
     val emit: String,
@@ -34,7 +35,7 @@ class X86MemStorage(
                 if (env.target.ia32) sizes.add(32)
                 if (env.target.amd64_v1) sizes.add(64)
                 if (dest.getWidth() in sizes) { // TODO: other reg sizes dependent on target flags
-                    val reg = env.forceAllocReg(Owner.Flags(Env.Use.STORE, dest.getWidth(), null, Type.INT))
+                    val reg = env.forceAllocReg(Owner.Flags(CGEnv.Use.STORE, dest.getWidth(), null, Type.INT))
                     val regSto = reg.storage!!.flatten()
                     emitMov(env, regSto)
                     regSto.emitMov(env, dest)

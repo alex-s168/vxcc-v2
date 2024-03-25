@@ -1,8 +1,9 @@
-package vxcc.cg.fake
+package vxcc.cg.utils
 
 import vxcc.cg.*
+import vxcc.utils.flatten
 
-interface DefArrayIndexImpl<E: Env<E>>: Value<E> {
+interface DefArrayIndexImpl<E: CGEnv<E>>: Value<E> {
     override fun <V : Value<E>> emitArrayIndex(env: E, index: V, stride: Long, dest: Storage<E>) {
         val addr = env.alloc(env.optimal.ptr)
         this.emitArrayOffset(env, index, stride, addr.storage!!.flatten())

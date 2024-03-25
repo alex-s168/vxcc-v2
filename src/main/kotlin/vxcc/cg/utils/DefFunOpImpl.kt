@@ -1,10 +1,10 @@
-package vxcc.cg.fake
+package vxcc.cg.utils
 
-import vxcc.cg.Env
+import vxcc.cg.CGEnv
 import vxcc.cg.Storage
 import vxcc.cg.Value
 
-interface DefFunOpImpl<E: Env<E>>: Value<E> {
+interface DefFunOpImpl<E: CGEnv<E>>: Value<E> {
     override fun <V : Value<E>> emitSignedMax(env: E, other: V, dest: Storage<E>) {
         val thisGr = env.newLocalLabel()
         env.emitJumpIfSignedGreater(this, other, thisGr)

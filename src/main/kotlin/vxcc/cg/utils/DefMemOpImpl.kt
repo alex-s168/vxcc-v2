@@ -1,11 +1,12 @@
-package vxcc.cg.fake
+package vxcc.cg.utils
 
 import vxcc.cg.*
+import vxcc.utils.flatten
 
-interface DefMemOpImpl<T: Env<T>>: Env<T> {
+interface DefMemOpImpl<T: CGEnv<T>>: CGEnv<T> {
     override fun memCpy(src: MemStorage<T>, dest: MemStorage<T>, len: Int) {
-        if (optMode == Env.OptMode.SPEED) { // TODO: maybe not unroll the whole loop...
-            val flags = Owner.Flags(Env.Use.STORE, 8, null, Type.INT)
+        if (optMode == CGEnv.OptMode.SPEED) { // TODO: maybe not unroll the whole loop...
+            val flags = Owner.Flags(CGEnv.Use.STORE, 8, null, Type.INT)
             repeat(len) { i ->
                 src.offsetBytes(i).reduced(this as T, flags).emitMov(this as T, dest.offsetBytes(i).reducedStorage(this as T, flags))
             }
@@ -24,7 +25,7 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
             val temp = alloc(optimal.int)
             val tempSto = temp.storage!!.flatten()
             dest.emitArrayOffset(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), tempSto)
-            val d = addrToMemStorage(temp, Owner.Flags(Env.Use.STORE, 8, null, Type.INT))
+            val d = addrToMemStorage(temp, Owner.Flags(CGEnv.Use.STORE, 8, null, Type.INT))
             src.emitArrayIndex(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), d)
 
             counterSto.emitStaticAdd(this as T, 1uL, counterSto)
@@ -50,7 +51,7 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
         val temp = alloc(optimal.int)
         val tempSto = temp.storage!!.flatten()
         dest.emitArrayOffset(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), tempSto)
-        val d = addrToMemStorage(temp, Owner.Flags(Env.Use.STORE, 8, null, Type.INT))
+        val d = addrToMemStorage(temp, Owner.Flags(CGEnv.Use.STORE, 8, null, Type.INT))
         src.emitArrayIndex(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), d)
 
         counterSto.emitStaticAdd(this as T, 1uL, counterSto)
@@ -70,8 +71,8 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
 
     override fun <V: Value<T>> memSet(dest: MemStorage<T>, value: V, len: Int) {
         TODO()
-        if (optMode == Env.OptMode.SPEED) { // TODO: maybe not unroll the whole loop...
-            val flags = Owner.Flags(Env.Use.STORE, 8, null, Type.INT)
+        if (optMode == CGEnv.OptMode.SPEED) { // TODO: maybe not unroll the whole loop...
+            val flags = Owner.Flags(CGEnv.Use.STORE, 8, null, Type.INT)
             repeat(len) { i ->
                 value.emitMov(this as T, dest.offsetBytes(i).reducedStorage(this as T, flags))
             }
@@ -90,7 +91,7 @@ interface DefMemOpImpl<T: Env<T>>: Env<T> {
             val temp = alloc(optimal.int)
             val tempSto = temp.storage!!.flatten()
             dest.emitArrayOffset(this as T, counterSto, (optimal.int.totalWidth / 8).toLong(), tempSto)
-            val d = addrToMemStorage(temp, Owner.Flags(Env.Use.STORE, 8, null, Type.INT))
+            val d = addrToMemStorage(temp, Owner.Flags(CGEnv.Use.STORE, 8, null, Type.INT))
             value.emitMov(this as T, d)
 
             counterSto.emitStaticAdd(this as T, 1uL, counterSto)

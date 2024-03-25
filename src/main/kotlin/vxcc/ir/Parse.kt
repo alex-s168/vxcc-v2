@@ -1,7 +1,8 @@
 package vxcc.ir
 
 import vxcc.cg.*
-import kotlin.math.exp
+import vxcc.utils.Either
+import vxcc.utils.flatten
 
 /*
 Example code:
@@ -15,18 +16,18 @@ Example code:
 (ret)
  */
 
-data class IrGlobalScope<E: Env<E>>(
+data class IrGlobalScope<E: CGEnv<E>>(
     val types: MutableMap<String, Owner.Flags> = mutableMapOf(),
     val functions: MutableList<String> = mutableListOf(),
 )
 
-data class IrLocalScope<E: Env<E>>(
+data class IrLocalScope<E: CGEnv<E>>(
     val parent: IrGlobalScope<E>,
     val locals: MutableMap<String, Pair<TypeId, Owner<E>>> = mutableMapOf(),
     val blocks: MutableList<String> = mutableListOf()
 )
 
-internal data class IrCall<E: Env<E>>(
+internal data class IrCall<E: CGEnv<E>>(
     val type: Owner.Flags?,
     val fn: String,
     val args: List<Either<Value<E>, String>>
@@ -64,7 +65,7 @@ private fun String.splitWithNesting(
     return dest
 }
 
-private fun <E: Env<E>> parseAndEmitCall(
+private fun <E: CGEnv<E>> parseAndEmitCall(
     ctx: IrLocalScope<E>,
     typeResolver: (TypeId) -> Owner.Flags,
     callEmitter: (IrLocalScope<E>, E, IrCall<E>, dest: Owner<E>?) -> Unit,
@@ -91,7 +92,7 @@ private fun <E: Env<E>> parseAndEmitCall(
     callEmitter(ctx, env, irCall, dest)
 }
 
-private fun <E: Env<E>> parseAndEmitVal(
+private fun <E: CGEnv<E>> parseAndEmitVal(
     ctx: IrLocalScope<E>,
     typeResolver: (TypeId) -> Owner.Flags,
     callEmitter: (IrLocalScope<E>, E, IrCall<E>, dest: Owner<E>?) -> Unit,
@@ -120,7 +121,7 @@ private fun <E: Env<E>> parseAndEmitVal(
         if (destDest == null) {
             val d = env.alloc(type)
             parseAndEmitCall(ctx, typeResolver, callEmitter, env, rest, type, d)
-            d.canBeDepromoted = type.copy(use = Env.Use.STORE)
+            d.canBeDepromoted = type.copy(use = CGEnv.Use.STORE)
             d.storage!!.flatten()
         } else {
             parseAndEmitCall(ctx, typeResolver, callEmitter, env, rest, type, destDest)
@@ -143,7 +144,7 @@ private fun <E: Env<E>> parseAndEmitVal(
     }
 }
 
-private fun <E: Env<E>> parseAndEmit(
+private fun <E: CGEnv<E>> parseAndEmit(
     lines: Iterable<String>,
     env: E,
     ctx: IrLocalScope<E>,
@@ -250,7 +251,7 @@ private fun <E: Env<E>> parseAndEmit(
     }
 }
 
-fun <E: Env<E>> ir(
+fun <E: CGEnv<E>> ir(
     lines: Iterator<String>,
     env: E,
     ctx: IrGlobalScope<E> = IrGlobalScope(),
@@ -306,11 +307,11 @@ fun <E: Env<E>> ir(
             val type = when (vType) {
                 "int" -> {
                     val vWidth = defFlags["w"]!!.toInt()
-                    Owner.Flags(Env.Use.SCALAR_AIRTHM, vWidth, null, Type.INT)
+                    Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, vWidth, null, Type.INT)
                 }
                 "flt" -> {
                     val vWidth = defFlags["w"]!!.toInt()
-                    Owner.Flags(Env.Use.SCALAR_AIRTHM, vWidth, null, Type.FLT)
+                    Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, vWidth, null, Type.FLT)
                 }
                 else -> throw Exception("unknown type type")
             }

@@ -1,9 +1,8 @@
 package vxcc.cg
 
-import vxcc.cg.fake.DefStaticLogicOpImpl
-import vxcc.cg.fake.DefStaticOpImpl
+import vxcc.cg.utils.DefStaticOpImpl
 
-interface AbstractVectorValue<E: Env<E>>: Value<E>, DefStaticOpImpl<E> {
+interface AbstractVectorValue<E: CGEnv<E>>: Value<E>, DefStaticOpImpl<E> {
     override fun <V : Value<E>> emitAdd(env: E, other: V, dest: Storage<E>) {
         throw Exception("Can not perform scalar operation on vector value!")
     }

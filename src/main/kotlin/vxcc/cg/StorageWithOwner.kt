@@ -1,5 +1,5 @@
 package vxcc.cg
 
-interface StorageWithOwner<E: Env<E>>: Storage<E> {
+interface StorageWithOwner<E: CGEnv<E>>: Storage<E> {
     val owner: Owner<E>
 }

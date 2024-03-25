@@ -4,9 +4,11 @@ import vxcc.arch.ua16.UA16Target
 import vxcc.asm.assemble
 import vxcc.asm.ua16.UA16Assembler
 import vxcc.cg.*
-import vxcc.cg.fake.DefMemOpImpl
-import vxcc.cg.fake.FakeBitSlice
-import vxcc.cg.fake.FakeVec
+import vxcc.cg.utils.DefMemOpImpl
+import vxcc.cg.utils.FakeBitSlice
+import vxcc.cg.utils.FakeVec
+import vxcc.utils.Either
+import vxcc.utils.flatten
 
 // TODO: bit slice immediates -> static alloc
 
@@ -92,7 +94,7 @@ class UA16Env(
             if (makeRegSize(width) == width)
                 return UA16Immediate(value, width)
         }
-        val flags = Owner.Flags(Env.Use.SCALAR_AIRTHM, width, null, Type.INT)
+        val flags = Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, width, null, Type.INT)
         return alloc(flags).storage!!.flatten().also {
             UA16Immediate(value, width).emitMov(this, it)
         }
@@ -115,11 +117,11 @@ class UA16Env(
     }
 
     override fun export(label: String) {
-        // TODO?
+        // TODO
     }
 
     override fun import(label: String) {
-        // TODO?
+        // TODO
     }
 
     override fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<UA16Env> =
@@ -153,18 +155,19 @@ class UA16Env(
     }
 
     override val optimal = object : Optimal<UA16Env> {
-        override val bool = Owner.Flags(Env.Use.SCALAR_AIRTHM, 8, null, Type.INT)
+        override val bool = Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, 8, null, Type.INT)
         override val boolFast = bool
         override val boolSmall = bool
 
-        override val int = Owner.Flags(Env.Use.SCALAR_AIRTHM, 8, null, Type.INT)
+        override val int = Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, 8, null, Type.INT)
         override val intFast = int
         override val intSmall = int
 
-        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, 16, null, Type.INT)
+        override val ptr = Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, 16, null, Type.INT)
     }
 
-    override var optMode = Env.OptMode.SPEED
+    override var optMode = CGEnv.OptMode.SPEED
+    override var optLevel = 0.0f
 
     override fun inlineAsm(inst: String, vararg code: Either<String, Pair<String, Owner<UA16Env>>>) {
        TODO()
@@ -176,9 +179,9 @@ class UA16Env(
     override fun <V : Value<UA16Env>> flagsOf(value: V): Owner.Flags =
         when (value) {
             is FakeBitSlice<*> -> value.flags
-            is FakeVec<*> -> Owner.Flags(Env.Use.VECTOR_ARITHM, value.elements.size * value.elemWidth, value.elemWidth, Type.VxINT)
-            is UA16Immediate -> Owner.Flags(Env.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
-            is UA16Reg -> Owner.Flags(Env.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
+            is FakeVec<*> -> Owner.Flags(CGEnv.Use.VECTOR_ARITHM, value.elements.size * value.elemWidth, value.elemWidth, Type.VxINT)
+            is UA16Immediate -> Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
+            is UA16Reg -> Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, value.width, null, Type.INT)
             is UA16MemSto -> value.flags
             else -> TODO()
         }

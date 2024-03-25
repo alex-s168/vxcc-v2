@@ -17,8 +17,12 @@ data class Immediate(
                 Reg.Type.GP64EX -> when (value) {
                     0L -> dest.emitZero(env)
                     1L -> {
-                        dest.emitZero(env)
-                        env.emit("  inc ${dest.name}")
+                        if (env.optMode == CGEnv.OptMode.SIZE) {
+                            dest.emitZero(env)
+                            env.emit("  inc ${dest.name}")
+                        } else {
+                            env.emit("  mov ${dest.name}, $value")
+                        }
                     }
                     else -> env.emit("  mov ${dest.name}, $value")
                 }

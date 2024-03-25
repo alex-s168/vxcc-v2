@@ -1,6 +1,6 @@
 package vxcc.cg
 
-interface Value<E: Env<E>> {
+interface Value<E: CGEnv<E>> {
     /**
      * Move into destination.
      * Truncate if destination smaller

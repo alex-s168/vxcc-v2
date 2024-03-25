@@ -1,8 +1,10 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
-import vxcc.cg.fake.FakeBitSlice
-import vxcc.cg.fake.FakeVec
+import vxcc.cg.utils.FakeBitSlice
+import vxcc.cg.utils.FakeVec
+import vxcc.utils.Either
+import vxcc.utils.flatten
 
 fun Value<X86Env>.asReg() =
     this as Reg
@@ -28,7 +30,7 @@ fun Value<X86Env>.getWidth(): Int =
     }
 
 fun Value<X86Env>.useInGPReg(env: X86Env, block: (Reg) -> Unit) =
-    useInReg(env, Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT), block)
+    useInReg(env, Owner.Flags(CGEnv.Use.STORE, this.getWidth(), null, Type.INT), block)
 
 fun Value<X86Env>.useInReg(env: X86Env, flags: Owner.Flags, block: (Reg) -> Unit) {
     if (this is Reg) {
@@ -71,7 +73,7 @@ fun Owner<X86Env>.moveIntoReg(env: X86Env) {
  * ((if the storage is not a reg itself))
  */
 fun Storage<X86Env>.useInGPRegWriteBack(env: X86Env, copyInBegin: Boolean = true, block: (Reg) -> Unit) =
-    useInRegWriteBack(env, Owner.Flags(Env.Use.STORE, this.getWidth(), null, Type.INT), copyInBegin, block)
+    useInRegWriteBack(env, Owner.Flags(CGEnv.Use.STORE, this.getWidth(), null, Type.INT), copyInBegin, block)
 
 fun Storage<X86Env>.useInRegWriteBack(env: X86Env, flags: Owner.Flags, copyInBegin: Boolean = true, block: (Reg) -> Unit) =
     if (this is Reg) {

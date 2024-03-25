@@ -1,10 +1,10 @@
-package vxcc.cg.fake
+package vxcc.cg.utils
 
-import vxcc.cg.Env
+import vxcc.cg.CGEnv
 import vxcc.cg.Storage
 import vxcc.cg.Value
 
-interface DefStaticOpImpl<E: Env<E>>: Value<E>, DefStaticLogicOpImpl<E> {
+interface DefStaticOpImpl<E: CGEnv<E>>: Value<E>, DefStaticLogicOpImpl<E> {
     override fun emitStaticMul(env: E, by: ULong, dest: Storage<E>) =
         emitMul(env, env.immediate(by.toLong(), env.optimal.int.totalWidth), dest)
 

@@ -1,9 +1,9 @@
 package vxcc.cg.ua16
 
 import vxcc.cg.*
-import vxcc.cg.fake.DefArrayIndexImpl
-import vxcc.cg.fake.DefFunOpImpl
-import vxcc.cg.fake.DefStaticOpImpl
+import vxcc.cg.utils.DefArrayIndexImpl
+import vxcc.cg.utils.DefFunOpImpl
+import vxcc.cg.utils.DefStaticOpImpl
 
 class UA16Reg(
     val name: String,
@@ -52,7 +52,7 @@ class UA16Reg(
 
         when (other) {
             is UA16Immediate -> {
-                if (other.value <= (if (env.optMode == Env.OptMode.SIZE) 8 else 4)) {
+                if (other.value <= (if (env.optMode == CGEnv.OptMode.SIZE) 8 else 4)) {
                     env.unsetCarry()
                     repeat(other.value.toInt()) {
                         env.emit("adc $name, 1")
@@ -81,7 +81,7 @@ class UA16Reg(
 
         when (other) {
             is UA16Immediate -> {
-                if (other.value <= (if (env.optMode == Env.OptMode.SIZE) 8 else 4)) {
+                if (other.value <= (if (env.optMode == CGEnv.OptMode.SIZE) 8 else 4)) {
                     repeat(other.value.toInt()) {
                         env.emit("@sbc $name, 1, clob=${env.clobReg}")
                     }

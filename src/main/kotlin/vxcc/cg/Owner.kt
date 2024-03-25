@@ -1,6 +1,8 @@
 package vxcc.cg
 
-data class Owner<E: Env<E>>(
+import vxcc.utils.Either
+
+data class Owner<E: CGEnv<E>>(
     var storage: Either<StorageWithOwner<E>, Storage<E>>?,
     val flags: Flags,
     var canBeDepromoted: Flags? = null,
@@ -10,14 +12,14 @@ data class Owner<E: Env<E>>(
     var shouldBeDestroyed: Boolean = false,
 ) {
     data class Flags(
-        val use: Env.Use,
+        val use: CGEnv.Use,
         val totalWidth: Int,
         val vecElementWidth: Int?,
         val type: Type,
     )
 
     companion object {
-        fun <E: Env<E>> temp(): Owner<E> =
-            Owner(null, Flags(Env.Use.STORE, 0, null, Type.INT))
+        fun <E: CGEnv<E>> temp(): Owner<E> =
+            Owner(null, Flags(CGEnv.Use.STORE, 0, null, Type.INT))
     }
 }

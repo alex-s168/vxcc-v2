@@ -2,7 +2,7 @@ import vxcc.arch.asmForTarget
 import vxcc.arch.envForTarget
 import vxcc.arch.parseTargetStr
 import vxcc.asm.assemble
-import vxcc.cg.Env
+import vxcc.cg.CGEnv
 import java.io.File
 
 fun argParse(argsIn: Array<String>): Map<String, String?> {
@@ -69,11 +69,11 @@ fun main(argsIn: Array<String>) {
     println(target)
     val opt = args["opt"]?.let {
         when (it) {
-            "size" -> Env.OptMode.SIZE
-            "speed" -> Env.OptMode.SPEED
+            "size" -> CGEnv.OptMode.SIZE
+            "speed" -> CGEnv.OptMode.SPEED
             else -> throw Exception("Invalid opt mode $it!")
         }
-    } ?: Env.OptMode.SPEED
+    } ?: CGEnv.OptMode.SPEED
     val input = File(args["input"] ?: throw Exception("Input not specified!")).also {
         if (!it.canRead()) throw Exception("File not readable!")
     }

@@ -1,12 +1,12 @@
 package vxcc.ir
 
-import vxcc.cg.Env
+import vxcc.cg.CGEnv
 import vxcc.cg.Owner
-import vxcc.cg.flatten
+import vxcc.utils.flatten
 
 // TODO: check if blocks even exist
 
-internal fun <E: Env<E>> callEmitter(ctx: IrLocalScope<E>, env: E, call: IrCall<E>, dest: Owner<E>?) {
+internal fun <E: CGEnv<E>> callEmitter(ctx: IrLocalScope<E>, env: E, call: IrCall<E>, dest: Owner<E>?) {
     when (call.fn) {
         "add" -> call.args[0].getA().emitAdd(env, call.args[1].getA(), dest!!.storage!!.flatten())
         "mul" -> call.args[0].getA().emitMul(env, call.args[1].getA(), dest!!.storage!!.flatten())

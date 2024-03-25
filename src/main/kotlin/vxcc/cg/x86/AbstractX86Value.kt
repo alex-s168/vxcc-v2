@@ -1,7 +1,8 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
-import vxcc.cg.fake.DefStaticOpImpl
+import vxcc.cg.utils.DefStaticOpImpl
+import vxcc.utils.Either
 
 interface AbstractX86Value: Value<X86Env>, DefStaticOpImpl<X86Env> {
     /** dest = this + index * stride */

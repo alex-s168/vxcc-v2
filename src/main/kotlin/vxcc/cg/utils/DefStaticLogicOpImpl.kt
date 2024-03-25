@@ -1,10 +1,10 @@
-package vxcc.cg.fake
+package vxcc.cg.utils
 
-import vxcc.cg.Env
+import vxcc.cg.CGEnv
 import vxcc.cg.Storage
 import vxcc.cg.Value
 
-interface DefStaticLogicOpImpl<E: Env<E>>: Value<E> {
+interface DefStaticLogicOpImpl<E: CGEnv<E>>: Value<E> {
     override fun emitStaticMask(env: E, mask: Long, dest: Storage<E>) =
         emitMask(env, env.immediate(mask, env.optimal.int.totalWidth), dest)
 

@@ -2,8 +2,9 @@ package vxcc.cg
 
 import vxcc.ir.IrGlobalScope
 import vxcc.ir.ir
+import vxcc.utils.Either
 
-interface Env<T: Env<T>> {
+interface CGEnv<T: CGEnv<T>> {
     val source: StringBuilder
     fun emitRet()
     fun emitCall(fn: String)
@@ -77,6 +78,8 @@ interface Env<T: Env<T>> {
     val optimal: Optimal<T>
 
     var optMode: OptMode
+    /* optimization level from 0 to 1, where 0 is no time-consuming optimizations and 1 is all possible time-consuming optimizations */
+    var optLevel: Float
 
     enum class Use {
         STORE,

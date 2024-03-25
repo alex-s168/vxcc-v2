@@ -1,6 +1,8 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
+import vxcc.utils.Either
+import vxcc.utils.flatten
 import kotlin.math.ceil
 import kotlin.math.log2
 

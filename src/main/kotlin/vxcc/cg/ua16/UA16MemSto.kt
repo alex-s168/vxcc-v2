@@ -1,9 +1,10 @@
 package vxcc.cg.ua16
 
 import vxcc.cg.*
-import vxcc.cg.fake.DefArrayIndexImpl
-import vxcc.cg.fake.DefFunOpImpl
-import vxcc.cg.fake.DefStaticOpImpl
+import vxcc.cg.utils.DefArrayIndexImpl
+import vxcc.cg.utils.DefFunOpImpl
+import vxcc.cg.utils.DefStaticOpImpl
+import vxcc.utils.flatten
 import kotlin.arrayOf
 
 class UA16MemSto(

@@ -1,6 +1,6 @@
 package vxcc.cg
 
-interface Optimal<T: Env<T>> {
+interface Optimal<T: CGEnv<T>> {
     /** overall fastest boolean type */
     val boolFast: Owner.Flags
 

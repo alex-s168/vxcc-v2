@@ -6,7 +6,7 @@ import vxcc.arch.x86.X86Target
 import vxcc.asm.Assembler
 import vxcc.asm.etca.ETCAAssembler
 import vxcc.asm.ua16.UA16Assembler
-import vxcc.cg.Env
+import vxcc.cg.CGEnv
 import vxcc.cg.ua16.UA16Env
 import vxcc.cg.x86.X86Env
 
@@ -28,7 +28,7 @@ fun parseTargetStr(cpu: String): AbstractTarget {
     return t
 }
 
-fun envForTarget(tg: AbstractTarget, origin: Int? = null): Env<*> =
+fun envForTarget(tg: AbstractTarget, origin: Int? = null): CGEnv<*> =
     when (tg) {
         is X86Target -> X86Env(tg)
         is UA16Target -> UA16Env(origin ?: 0, tg)

@@ -4,9 +4,9 @@ import vxcc.cg.AbstractScalarValue
 import vxcc.cg.Owner
 import vxcc.cg.Storage
 import vxcc.cg.Value
-import vxcc.cg.fake.DefArrayIndexImpl
-import vxcc.cg.fake.DefFunOpImpl
-import vxcc.cg.fake.DefStaticOpImpl
+import vxcc.cg.utils.DefArrayIndexImpl
+import vxcc.cg.utils.DefFunOpImpl
+import vxcc.cg.utils.DefStaticOpImpl
 
 class UA16Immediate(
     val value: Long,

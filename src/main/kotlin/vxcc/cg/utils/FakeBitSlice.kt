@@ -1,9 +1,10 @@
-package vxcc.cg.fake
+package vxcc.cg.utils
 
 import vxcc.cg.*
+import vxcc.utils.flatten
 import kotlin.math.pow
 
-open class FakeBitSlice<E: Env<E>>(
+open class FakeBitSlice<E: CGEnv<E>>(
     val parent: Storage<E>,
     val flags: Owner.Flags,
 ): Storage<E>,
@@ -21,7 +22,7 @@ open class FakeBitSlice<E: Env<E>>(
         val oSto = o.storage!!.flatten()
         parent.emitMov(env, oSto)
         oSto.emitStaticMask(env, ((2.0).pow(flags.totalWidth) - 1).toLong(), oSto)
-        o.canBeDepromoted = Owner.Flags(Env.Use.STORE, flags.totalWidth, null, Type.INT)
+        o.canBeDepromoted = Owner.Flags(CGEnv.Use.STORE, flags.totalWidth, null, Type.INT)
         return o
     }
 

@@ -1,19 +1,20 @@
-package vxcc.cg.fake
+package vxcc.cg.utils
 
 import vxcc.cg.*
+import vxcc.utils.flatten
 
 // TODO: maybe there are vecs with the same stride but just different total length; use those if possible
 
-open class FakeVec<E: Env<E>> private constructor(
+open class FakeVec<E: CGEnv<E>> private constructor(
     var elements: List<Owner<E>>,
     val elemWidth: Int,
 ):  Storage<E>, AbstractVectorValue<E> {
 
-    fun dealloc(env: Env<E>) =
+    fun dealloc(env: CGEnv<E>) =
         elements.forEach { env.dealloc(it) }
 
     companion object {
-        fun <E: Env<E>> create(env: E, flags: Owner.Flags): FakeVec<E> {
+        fun <E: CGEnv<E>> create(env: E, flags: Owner.Flags): FakeVec<E> {
             val elements = mutableListOf<Owner<E>>()
             val type = when (flags.type) {
                 Type.VxINT -> Type.INT
@@ -21,10 +22,10 @@ open class FakeVec<E: Env<E>> private constructor(
                 else -> Type.INT
             }
             val elemFlags =
-                if (flags.use == Env.Use.VECTOR_ARITHM)
-                    Owner.Flags(Env.Use.SCALAR_AIRTHM, flags.vecElementWidth!!, null, type)
+                if (flags.use == CGEnv.Use.VECTOR_ARITHM)
+                    Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, flags.vecElementWidth!!, null, type)
                 else
-                    Owner.Flags(Env.Use.STORE, flags.vecElementWidth!!, null, type)
+                    Owner.Flags(CGEnv.Use.STORE, flags.vecElementWidth!!, null, type)
 
             repeat(flags.totalWidth / flags.vecElementWidth) {
                 elements += env.alloc(elemFlags)

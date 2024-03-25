@@ -2,9 +2,12 @@ package vxcc.cg.x86
 
 import vxcc.arch.x86.X86Target
 import vxcc.cg.*
-import vxcc.cg.fake.DefMemOpImpl
-import vxcc.cg.fake.FakeBitSlice
-import vxcc.cg.fake.FakeVec
+import vxcc.cg.utils.DefMemOpImpl
+import vxcc.cg.utils.FakeBitSlice
+import vxcc.cg.utils.FakeVec
+import vxcc.utils.Either
+import vxcc.utils.Obj
+import vxcc.utils.flatten
 import kotlin.math.ceil
 
 data class X86Env(
@@ -62,28 +65,30 @@ data class X86Env(
 
     var regAlloc = true
     var stackAlloc = true
-    override var optMode = Env.OptMode.SPEED
+
+    override var optMode = CGEnv.OptMode.SPEED
+    override var optLevel = 0.0f
 
     override val optimal = object: Optimal<X86Env> {
         /** overall fastest boolean type */
-        override val boolFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.ia32) 32 else 16, null, Type.INT)
+        override val boolFast = Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, if (target.ia32) 32 else 16, null, Type.INT)
 
         /** overall smallest boolean type */
         override val boolSmall = boolFast
 
         /** fastest boolean type if speed opt, otherwise smallest boolean type */
-        override val bool get() = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+        override val bool get() = if (optMode == CGEnv.OptMode.SPEED) boolFast else boolSmall
 
         /** overall fastest int type */
-        override val intFast = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.ia32) 32 else 16, null, Type.INT)
+        override val intFast = Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, if (target.ia32) 32 else 16, null, Type.INT)
 
         /** overall smallest int type */
         override val intSmall = intFast
 
         /** fastest int type if speed opt, otherwise smallest int type */
-        override val int get() = if (optMode == Env.OptMode.SPEED) boolFast else boolSmall
+        override val int get() = if (optMode == CGEnv.OptMode.SPEED) boolFast else boolSmall
 
-        override val ptr = Owner.Flags(Env.Use.SCALAR_AIRTHM, if (target.ia32) 32 else if (target.amd64_v1) 64 else 16, null, Type.INT)
+        override val ptr = Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, if (target.ia32) 32 else if (target.amd64_v1) 64 else 16, null, Type.INT)
     }
 
     private var fpuUse: Boolean = false
@@ -127,7 +132,7 @@ data class X86Env(
         tryClaim(index) ?: BestRegResult(index, true)
 
     private fun getBestAvailableReg(flags: Owner.Flags): BestRegResult? {
-        val gp = flags.use in arrayOf(Env.Use.SCALAR_AIRTHM, Env.Use.STORE) && !flags.type.float && !flags.type.vector
+        val gp = flags.use in arrayOf(CGEnv.Use.SCALAR_AIRTHM, CGEnv.Use.STORE) && !flags.type.float && !flags.type.vector
 
         var found: Reg.Index? = null
 
@@ -152,9 +157,9 @@ data class X86Env(
             }
         }
 
-        if (flags.use in arrayOf(Env.Use.VECTOR_ARITHM, Env.Use.STORE)) {
+        if (flags.use in arrayOf(CGEnv.Use.VECTOR_ARITHM, CGEnv.Use.STORE)) {
             if (target.mmx && flags.totalWidth <= 64 &&
-                (flags.use == Env.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32)) &&
+                (flags.use == CGEnv.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32)) &&
                 !fpuUse && flags.type.int) {
                 for (i in 0..7) {
                     found = Reg.Index(Reg.Type.MM, i)
@@ -166,7 +171,7 @@ data class X86Env(
 
             if (target.sse1 &&
                 (flags.totalWidth <= 128 || flags.totalWidth <= 256 && target.avx || flags.totalWidth <= 512 && target.avx512f) &&
-                (flags.use == Env.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32, 64)) &&
+                (flags.use == CGEnv.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32, 64)) &&
                 (flags.type.float || flags.type.int && target.sse2)) {
                 for (i in 0..7) {
                     found = Reg.Index(Reg.Type.XMM, i)
@@ -355,7 +360,7 @@ data class X86Env(
     override fun staticLabeledData(name: String, widthBytes: Int, init: ByteArray?) {
         val arr = init ?: ByteArray(widthBytes)
         require(arr.size == widthBytes)
-        val align = if (optMode == Env.OptMode.SPEED) {
+        val align = if (optMode == CGEnv.OptMode.SPEED) {
             if (target.avx512f) 64
             else if (target.avx2) 32
             else if (target.sse1) 16
@@ -377,7 +382,7 @@ data class X86Env(
     }
 
     override fun makeVecFloat(spFloat: Value<X86Env>, count: Int): Owner<X86Env> {
-        val reg = forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, count * 32, 32, Type.VxFLT))
+        val reg = forceAllocReg(Owner.Flags(CGEnv.Use.VECTOR_ARITHM, count * 32, 32, Type.VxFLT))
         val regReg = reg.storage!!.flatten().asReg()
         if (target.avx && regReg.totalWidth in arrayOf(128, 256)) { // xmm and ymm
             spFloat.useInGPReg(this) { valReg ->
@@ -396,7 +401,7 @@ data class X86Env(
     }
 
     override fun makeVecDouble(dpFloat: Value<X86Env>, count: Int): Owner<X86Env> {
-        val reg = forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, count * 64, 64, Type.VxFLT))
+        val reg = forceAllocReg(Owner.Flags(CGEnv.Use.VECTOR_ARITHM, count * 64, 64, Type.VxFLT))
         val regReg = reg.storage!!.flatten().asReg()
         if (target.avx && regReg.totalWidth == 256) { // ymm
             dpFloat.useInGPReg(this) { valReg ->
@@ -451,13 +456,13 @@ data class X86Env(
         when (value) {
             is StorageWithOwner<*> -> value.owner.flags
             is Reg -> Owner.Flags(
-                if (value.vecElementWidth == null) Env.Use.SCALAR_AIRTHM else Env.Use.VECTOR_ARITHM,
+                if (value.vecElementWidth == null) CGEnv.Use.SCALAR_AIRTHM else CGEnv.Use.VECTOR_ARITHM,
                 value.totalWidth,
                 value.vecElementWidth,
                 if (value.vecElementWidth == null) Type.INT else Type.VxINT,
             )
             is FakeVec<*> -> Owner.Flags(
-                Env.Use.VECTOR_ARITHM,
+                CGEnv.Use.VECTOR_ARITHM,
                 value.getWidth(),
                 value.elemWidth,
                 Type.VxINT,
@@ -599,25 +604,25 @@ data class X86Env(
         X86MemStorage(label, if (label.startsWith('.')) 1 else 16, flags)
 
     override fun memSet(dest: MemStorage<X86Env>, value: Byte, len: Int) {
-        if (this.optMode == Env.OptMode.SIZE) {
+        if (this.optMode == CGEnv.OptMode.SIZE) {
             TODO()
         } else {
             if (this.target.sse1) {
                 TODO()
             } else if (this.target.mmx) {
                 // TODO: check align
-                val reg = this.forceAllocReg(Owner.Flags(Env.Use.VECTOR_ARITHM, 64, 8, Type.VxINT))
+                val reg = this.forceAllocReg(Owner.Flags(CGEnv.Use.VECTOR_ARITHM, 64, 8, Type.VxINT))
                 val regSto = reg.storage!!.flatten()
                 if (value.toInt() == 0) {
                     regSto.emitZero(this)
                 } else {
-                    val valueLoc = this.staticAlloc(8, ByteArray(8) { value }, Owner.Flags(Env.Use.STORE, 64, null, Type.INT))
+                    val valueLoc = this.staticAlloc(8, ByteArray(8) { value }, Owner.Flags(CGEnv.Use.STORE, 64, null, Type.INT))
                     valueLoc.emitMov(this, regSto)
                 }
                 val first = len / 8
                 for (i in 0.. first) {
                     val off = i * 8
-                    regSto.emitMov(this, dest.offsetBytes(off).reducedStorage(this, Owner.Flags(Env.Use.STORE, 64, null, Type.INT)))
+                    regSto.emitMov(this, dest.offsetBytes(off).reducedStorage(this, Owner.Flags(CGEnv.Use.STORE, 64, null, Type.INT)))
                 }
                 this.dealloc(reg)
                 var left = len % 8
@@ -627,7 +632,7 @@ data class X86Env(
                         (value.toLong() shl 24)
                 for (i in 0..left / 4) {
                     this.immediate(valuex4, 32)
-                        .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, Owner.Flags(Env.Use.SCALAR_AIRTHM, 32, null, Type.INT)))
+                        .emitMov(this, dest.offsetBytes(first + i * 4).reducedStorage(this, Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, 32, null, Type.INT)))
                 }
                 left %= 4
                 if (left > 0) {
