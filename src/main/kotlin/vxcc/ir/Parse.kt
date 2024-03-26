@@ -4,6 +4,7 @@ import blitz.collections.contents
 import vxcc.cg.*
 import vxcc.utils.Either
 import vxcc.utils.flatten
+import vxcc.utils.splitWithNesting
 import vxcc.utils.warn
 
 /*
@@ -35,38 +36,6 @@ internal data class IrCall<E: CGEnv<E>>(
     val fn: String,
     val args: List<Either<Value<E>, String>>
 )
-
-private fun String.splitWithNesting(
-    delim: Char,
-    nestUp: Char,
-    nestDown: Char,
-    dest: MutableList<String> = mutableListOf()
-): MutableList<String> {
-    val last = StringBuilder()
-    val iter = iterator()
-    var nesting = 0
-    while (iter.hasNext()) {
-        val c = iter.next()
-        if (nesting == 0 && c == delim) {
-            dest.add(last.toString())
-            last.clear()
-        } else if (c == nestUp) {
-            nesting ++
-            last.append(c)
-        } else if (c == nestDown) {
-            if (nesting == 0)
-                throw Exception("Unmatched $nestDown")
-            nesting --
-            last.append(c)
-        } else {
-            last.append(c)
-        }
-    }
-    dest.add(last.toString())
-    if (nesting != 0)
-        throw Exception("Unmatched $nestUp")
-    return dest
-}
 
 private fun <E: CGEnv<E>> parseAndEmitCall(
     ctx: IrLocalScope<E>,
@@ -218,6 +187,10 @@ private fun <E: CGEnv<E>> parseAndEmit(
                     val into = rest.substring(3)
                     val loc = ctx.locals[name]!!.second
                     env.forceIntoReg(loc, into)
+                } else if (rest.startsWith("><")) {
+                    val newName = rest.substring(3)
+                    ctx.locals[newName] = ctx.locals.remove(name)!!
+                    // TODO: we need to remember that we renamed arg!!!!!!
                 } else if (rest.startsWith('@')) {
                     if (rest.startsWith("@mem")) {
                         val (typeStr, where) = rest.substringAfter("@mem ").split(' ', limit = 2)

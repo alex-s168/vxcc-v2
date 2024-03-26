@@ -1,0 +1,20 @@
+module test;
+
+type cstring = ptr<std::ascii>;
+type int = std::target::optimal::int;
+
+struct User {
+  int id,
+  cstring name
+};
+
+private int next = 0;
+fn mut User User::new(cstring name) {
+  int id = next;
+  next = next + 1;
+  return new mut User { id = id, name = name };
+};
+
+fn cstring User::string(User this) {
+  return std::str::fmt(3,{"User(", this.name, ")"});
+};
