@@ -2,6 +2,7 @@ package vxcc.asm
 
 import vxcc.asm.etca.ETCAAssembler
 import vxcc.arch.AbstractTarget
+import kotlin.math.abs
 
 abstract class AbstractAssembler<T: AbstractAssembler<T>>(
     val origin: Int,
@@ -35,9 +36,14 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
         val repl = mapOf(*replIn)
         var bits = bitsIn.replace('.', '0')
         repl.forEach { (k, v) ->
-            val e = v.toString(2).padStart(k.length, '0')
+            val neg = v < 0
+            var e = abs(v).toString(2).padStart(k.length, '0')
             if (e.length != k.length)
                 throw Exception("Too big value")
+            if (neg) {
+                val t = e.toUInt(2).inv() + 1u
+                e = t.toUByte().toString(2).padStart(k.length, '0')
+            }
             bits = bits.replace(k, e)
         }
         val byte = bits.toUByte(2).toByte()
@@ -83,7 +89,7 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
 
             inst.parse(this as T, args)
         } catch (e: Exception) {
-            throw Exception("Error in instruction \"$name\": ${e.message}")
+            throw Exception("Error in instruction \"$name ${args.joinToString()}\": ${e.message}")
         }
     }
 
@@ -92,6 +98,15 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
 
     protected fun parseLabelOrNum(name: String): Int =
         labels[name]?.pos ?: parseNum(name)
+
+    fun <R> requireFeat(name: String, r: R): R {
+        if (name !in target.targetFlags)
+            error("Required feature $name not present!")
+        return r
+    }
+
+    fun requireFeat(name: String) =
+        requireFeat(name, Unit)
 
     companion object {
         @JvmStatic

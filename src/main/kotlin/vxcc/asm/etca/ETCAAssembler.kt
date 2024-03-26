@@ -73,6 +73,19 @@ class ETCAAssembler(
                 byteBits("00011100")
                 byteBits("aaa11000", "aaa" to parseReg(it[0]))
             },
+
+            "rcl" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1000, it) },
+            "rcr" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1001, it) },
+            "popcnt" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1010, it) },
+            "grev" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1011, it) },
+            "ctz" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1100, it) },
+            "clz" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1101, it) },
+            "not" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1110, it) },
+            "andn" to Instruction(listOf("bm1")) { simpleEop(0b0_0000_1111, it) },
+            "lsb" to Instruction(listOf("bm1")) { simpleEop(0b0_0001_1000, it) },
+            "lsmsk" to Instruction(listOf("bm1")) { simpleEop(0b0_0001_1001, it) },
+            "rlsb" to Instruction(listOf("bm1")) { simpleEop(0b0_0001_1010, it) },
+            "zhib" to Instruction(listOf("bm1")) { simpleEop(0b0_0001_1011, it) },
         )
     }
 
@@ -139,9 +152,18 @@ class ETCAAssembler(
 
     fun parseCR(reg: String): Int =
         when (reg) {
-            "cpuid1" -> 0
-            "cpuid2" -> 1
-            "feat" -> 2
+            "CPUID1" -> 0
+            "CPUID2" -> 1
+            "FEAT" -> 2
+            "FLAGS" -> requireFeat("int", 3)
+            "INT_PC"-> requireFeat("int", 4)
+            "INT_RET_PC"-> requireFeat("int", 5)
+            "INT_MASK"-> requireFeat("int", 6)
+            "INT_PENDING"-> requireFeat("int", 7)
+            "INT_CAUSE"-> requireFeat("int", 8)
+            "INT_DATA"-> requireFeat("int", 9)
+            "INT_SCRATCH_0"-> requireFeat("int", 10)
+            "INT_SCRATCH_1"-> requireFeat("int", 11)
             else -> throw Exception("Unknown control register $reg")
         }
 
@@ -153,10 +175,20 @@ class ETCAAssembler(
             if (id > 7u)
                 throw Exception("Invalid register!")
 
-            return id.toInt()
+            return when (id) {
+                5u -> error("r5 should be referred to as bp to avoid confusion")
+                6u -> error("r6 should be referred to as sp to avoid confusion")
+                7u -> error("r7 should be referred to as ln to avoid confusion")
+                else -> id.toInt()
+            }
         }
 
-        throw Exception("Invalid register!")
+        return when (reg) {
+            "bp" -> 5
+            "sp" -> 6
+            "ln" -> 7
+            else -> throw Exception("Invalid register!")
+        }
     }
 
     fun simpleOp(opcode: Int, args: List<String>) {
@@ -190,6 +222,29 @@ class ETCAAssembler(
     fun jumpOp(opcode: Int, args: List<String>) {
         refs += JmpRelRef(next, opcode, args[0])
         next += 2
+    }
+
+    fun eopRR(opcode: Int, size: Int, reg1: Int, reg2: Int, memMode: Int) {
+        byteBits("1110CCCC", "CCCC" to opcode.shr(5))
+        byteBits("C0SSEEEE", "C" to opcode.shr(4).and(1), "EEEE" to opcode.and(0b1111), "SS" to size)
+        byteBits("AAABBBMM", "AAA" to reg1, "BBB" to reg2, "MM" to memMode)
+    }
+
+    fun eopRI(opcode: Int, size: Int, reg: Int, imm: Int) {
+        byteBits("1110CCCC", "CCCC" to opcode.shr(5))
+        byteBits("C1SSEEEE", "C" to opcode.shr(4).and(1), "EEEE" to opcode.and(0b1111), "SS" to size)
+        byteBits("RRRIIIII", "RRR" to reg, "IIIII" to imm)
+    }
+
+    fun simpleEop(opcode: Int, args: List<String>) {
+        val a = parseReg(args[0])
+        val b = kotlin.runCatching { parseReg(args[1]) }.getOrNull()
+        if (b != null) { // reg reg
+            eopRR(opcode, 1, a, b, 0)
+        } else { // reg imm
+            val imm = parseNum(args[1])
+            eopRI(opcode, 1, a, imm)
+        }
     }
 
     override fun finish(): ByteArray {
