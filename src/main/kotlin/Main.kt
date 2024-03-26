@@ -66,7 +66,7 @@ fun main(argsIn: Array<String>) {
     }
     val operation = args[""]!!
     val target = parseTargetStr(args["target-file"]?.let { File(it).readText() } ?: args["target"]!!)
-    println(target)
+
     val opt = args["opt"]?.let {
         when (it) {
             "size" -> CGEnv.OptMode.SIZE

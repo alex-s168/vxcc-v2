@@ -1,8 +1,10 @@
 package vxcc.ir
 
+import blitz.collections.contents
 import vxcc.cg.*
 import vxcc.utils.Either
 import vxcc.utils.flatten
+import vxcc.utils.warn
 
 /*
 Example code:
@@ -19,11 +21,12 @@ Example code:
 data class IrGlobalScope<E: CGEnv<E>>(
     val types: MutableMap<String, Owner.Flags> = mutableMapOf(),
     val functions: MutableList<String> = mutableListOf(),
+    val abis: MutableMap<String, TypedABI> = mutableMapOf(),
 )
 
 data class IrLocalScope<E: CGEnv<E>>(
     val parent: IrGlobalScope<E>,
-    val locals: MutableMap<String, Pair<TypeId, Owner<E>>> = mutableMapOf(),
+    val locals: MutableMap<String, Pair<Owner.Flags, Owner<E>>> = mutableMapOf(),
     val blocks: MutableList<String> = mutableListOf()
 )
 
@@ -98,12 +101,12 @@ private fun <E: CGEnv<E>> parseAndEmitVal(
     callEmitter: (IrLocalScope<E>, E, IrCall<E>, dest: Owner<E>?) -> Unit,
     env: E,
     v: String,
-    dest: ((TypeId, Owner.Flags) -> Owner<E>)?,
+    dest: ((Owner.Flags) -> Owner<E>)?,
 ): Value<E>? {
     if (v.startsWith('%')) {
         val name = v.substring(1)
         val va = ctx.locals[name]!!
-        val destDest = dest?.invoke(va.first, typeResolver(va.first))
+        val destDest = dest?.invoke(va.first)
         val vaSto = va.second.storage!!.flatten()
         return if (destDest == null) {
             vaSto
@@ -117,7 +120,7 @@ private fun <E: CGEnv<E>> parseAndEmitVal(
     }
     val type = typeResolver(typeStr)
     return if (rest.startsWith('[')) {
-        val destDest = dest?.invoke(typeStr, type)
+        val destDest = dest?.invoke(type)
         if (destDest == null) {
             val d = env.alloc(type)
             parseAndEmitCall(ctx, typeResolver, callEmitter, env, rest, type, d)
@@ -134,7 +137,7 @@ private fun <E: CGEnv<E>> parseAndEmitVal(
             env.immediate(rest.toFloat())
         else
             env.immediate(rest.toLong(), type.totalWidth)
-        val destDest = dest?.invoke(typeStr, type)
+        val destDest = dest?.invoke(type)
         if (destDest == null) {
             va
         } else {
@@ -157,6 +160,26 @@ private fun <E: CGEnv<E>> parseAndEmit(
             continue
         if (verbose)
             env.comment(line)
+
+        if (line.startsWith("using abi")) {
+            val abiStr = line.substringAfter("using abi ")
+            val abi = if (abiStr == "none") null else (ctx.parent.abis[abiStr]
+                ?: error("ABI $abiStr not defined! You can use `none` to set to no ABI"))
+            ctx.locals.keys.asSequence()
+                .contents
+                .filter { it.startsWith("arg") }
+                .forEach {
+                    ctx.locals.remove(it)
+                    env.deallocReg(it)
+                }
+            env.currentABI = abi
+            abi?.typedArgRegs?.entries?.forEachIndexed { id, (reg, type) ->
+                val alloc = env.forceAllocReg(type, reg)
+                ctx.locals["arg$id"] = type to alloc
+            }
+            continue
+        }
+
         when (line.first()) {
             ':' -> {
                 val bn = ".${line.substring(1)}"
@@ -165,16 +188,21 @@ private fun <E: CGEnv<E>> parseAndEmit(
             }
             '%' -> {
                 val (name, rest) = line.substring(1).split(' ', limit = 2)
+                if (name.contains('\'')) {
+                    val (rname, _) = name.split('\'')
+                    if (rname.startsWith("arg"))
+                        error("You cannot reallocate function arguments!")
+                }
                 if (rest.startsWith('=')) {
-                    parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, rest.substring(2)) { typeStr, type ->
+                    parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, rest.substring(2)) { type ->
                         if (name.contains('\'')) {
                             val (rname, rdest) = name.split('\'')
                             if (rname == "")
                                 env.forceAllocReg(type, rdest).also { it.shouldBeDestroyed = true }
                             else
-                                ctx.locals.computeIfAbsent(rname) { typeStr to env.forceAllocReg(type, rdest) }.second
+                                ctx.locals.computeIfAbsent(rname) { type to env.forceAllocReg(type, rdest) }.second
                         } else {
-                            ctx.locals.computeIfAbsent(name) { typeStr to env.alloc(type) }.second
+                            ctx.locals.computeIfAbsent(name) { type to env.alloc(type) }.second
                         }
                     }
                 } else if (rest.startsWith("?")) {
@@ -182,9 +210,9 @@ private fun <E: CGEnv<E>> parseAndEmit(
                     val type = typeResolver(typeStr)
                     if (name.contains('\'')) {
                         val (rname, rdest) = name.split('\'')
-                        ctx.locals[rname] =  typeStr to env.forceAllocReg(type, rdest)
+                        ctx.locals[rname] =  type to env.forceAllocReg(type, rdest)
                     } else {
-                        ctx.locals[name] = typeStr to env.alloc(type)
+                        ctx.locals[name] = type to env.alloc(type)
                     }
                 } else if (rest.startsWith("<>")) {
                     val into = rest.substring(3)
@@ -196,14 +224,14 @@ private fun <E: CGEnv<E>> parseAndEmit(
                         val type = typeResolver(typeStr)
                         val whereInt = where.toULongOrNull()
                         if (whereInt != null) {
-                            ctx.locals[name] = typeStr to Owner(
+                            ctx.locals[name] = type to Owner(
                                 Either.ofB(env.addrToMemStorage(whereInt, type)),
                                 type
                             )
                         } else if (where.startsWith('*')) {
                             val ext = env.alloc(env.optimal.ptr)
-                            parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, where.substring(1)) { _, _ -> ext }
-                            ctx.locals[name] = typeStr to Owner(
+                            parseAndEmitVal(ctx, typeResolver, ::callEmitter, env, where.substring(1)) { _ -> ext }
+                            ctx.locals[name] = type to Owner(
                                 Either.ofB(env.addrToMemStorage(ext, type)),
                                 type
                             )
@@ -214,7 +242,7 @@ private fun <E: CGEnv<E>> parseAndEmit(
                                 where.substring(1)
                             else
                                 throw Exception("invalid location")
-                            ctx.locals[name] = typeStr to Owner(
+                            ctx.locals[name] = type to Owner(
                                 Either.ofB(env.addrOfAsMemStorage(label, type)),
                                 type
                             )
@@ -231,7 +259,24 @@ private fun <E: CGEnv<E>> parseAndEmit(
             }
             '~' -> {
                 val name = line.substring(3)
-                env.dealloc(ctx.locals.remove(name)!!.second)
+                if (name.startsWith("arg")) {
+                    val select = name.substringAfter("arg")
+                    val who = if (select == "*") {
+                        ctx.locals.keys.asSequence()
+                            .filter { it.startsWith("arg") }.toList()
+                    } else if (select.startsWith(">")) {
+                        val a = select.substring(1).toInt()
+                        ctx.locals.keys.asSequence()
+                            .filter { it.startsWith("arg") }
+                            .filter { it.substringAfter("arg").toInt() > a }
+                            .toList()
+                    } else {
+                        listOf(name)
+                    }
+                    who.forEach { env.dealloc(ctx.locals.remove(it)!!.second) }
+                } else {
+                    env.dealloc(ctx.locals.remove(name)!!.second)
+                }
             }
             '!'-> {
                 val asm = line.substring(2).split(' ')
@@ -260,7 +305,27 @@ fun <E: CGEnv<E>> ir(
     while (lines.hasNext()) {
         var line = lines.next().split('#', limit = 2)[0].trim()
         if (line.isEmpty()) continue
-        if (line.startsWith("fn") || line.startsWith("export fn")) {
+        if (line.startsWith("abi")) {
+            val (name, def) = line.substringAfter("abi ").split(" = ", limit = 2)
+            require(name !in ctx.abis)
+            val defFlags = def.split(' ').associate {
+                val f = it.split(':')
+                require(f.size == 2)
+                f[0] to f[1]
+            }
+            val ins = defFlags["inr"] ?: error("`inr` (in registers) not defined in ABI!")
+            val outs = defFlags["outr"] ?: error("`outr` (out registers) not defined in ABI!")
+            val clobs = defFlags["clobr"] ?: error("`clobr` (clobbed registers) not defined in ABI!")
+            fun f(fl: String) =
+                fl  .split(',')
+                    .associate {
+                        it.split('@').let { (t, r) ->
+                            r to (ctx.types[t] ?: error("type $t not found!"))
+                        }
+                    }
+            val abi = TypedABI(f(ins), f(outs), f(clobs))
+            ctx.abis[name] = abi
+        } else if (line.startsWith("fn") || line.startsWith("export fn")) {
             val export = line[0] == 'e'
             if (verbose)
                 env.comment(line)
@@ -275,13 +340,19 @@ fun <E: CGEnv<E>> ir(
                 fnLines += line
             }
             ctx.functions.add(fnName)
-            parseAndEmit(fnLines, env, IrLocalScope(ctx), verbose) { ctx.types[it]!! }
+            val localCtx = IrLocalScope(ctx)
+            parseAndEmit(fnLines, env, localCtx, verbose) { ctx.types[it]!! }
+            localCtx.locals.forEach { (name, _) ->
+                warn("Local $name not deallocated! (Can lead to bad code)")
+            }
             if (verbose)
                 env.comment("end")
             env.leaveFrame()
             env.emitRet()
             if (export)
                 env.export(fnName)
+            env.endFnGen()
+            env.currentABI = null
         } else if (line.startsWith("extern fn")) {
             val name = line.substringAfter("extern fn ")
             env.import(name)
@@ -297,7 +368,7 @@ fun <E: CGEnv<E>> ir(
                 env.export(name)
         } else if (line.startsWith("type")) {
             val (name, def) = line.substringAfter("type ").split(" = ", limit = 2)
-            assert(name !in ctx.types)
+            require(name !in ctx.types)
             val defFlags = def.split(' ').associate {
                 val f = it.split(':')
                 require(f.size == 2)

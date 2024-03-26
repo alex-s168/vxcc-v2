@@ -1,8 +1,10 @@
 package vxcc.cg
 
+import blitz.Provider
 import vxcc.ir.IrGlobalScope
 import vxcc.ir.ir
 import vxcc.utils.Either
+import vxcc.utils.flatten
 
 interface CGEnv<T: CGEnv<T>> {
     val source: StringBuilder
@@ -19,9 +21,24 @@ interface CGEnv<T: CGEnv<T>> {
     fun <A: Value<T>, B: Value<T>> emitJumpIfSignedLess(a: A, b: B, block: String)
     fun <A: Value<T>, B: Value<T>> emitJumpIfSignedGreater(a: A, b: B, block: String)
 
+
+    fun ownerOf(storage: Storage<T>): Owner<T>
     fun forceIntoReg(owner: Owner<T>, name: String)
+    /** Only returns an owner if new allocated */
+    fun forceIntoReg(value: Value<T>, name: String): Owner<T>? {
+        if (value is Storage) {
+            val owner = ownerOf(value)
+            forceIntoReg(owner, name)
+            return null
+        } else {
+            val owner = forceAllocReg(flagsOf(value), name)
+            return owner
+        }
+    }
+
     /** if `name` is `static` then it needs to be statically allocated instead */
     fun forceAllocReg(flags: Owner.Flags, name: String): Owner<T>
+    fun storeReg(reg: String, dest: Storage<T>)
     fun alloc(flags: Owner.Flags): Owner<T>
     fun allocHeated(flags: Owner.Flags): Owner<T> =
         alloc(flags)
@@ -45,6 +62,8 @@ interface CGEnv<T: CGEnv<T>> {
     fun import(label: String)
     fun addrOf(label: String, dest: Storage<T>)
     fun addrOfAsMemStorage(label: String, flags: Owner.Flags): MemStorage<T>
+    /** should be called after finishing generating a function: resets local allocator */
+    fun endFnGen()
 
     fun addrToMemStorage(addr: ULong, flags: Owner.Flags): MemStorage<T>
 
@@ -80,6 +99,51 @@ interface CGEnv<T: CGEnv<T>> {
     var optMode: OptMode
     /* optimization level from 0 to 1, where 0 is no time-consuming optimizations and 1 is all possible time-consuming optimizations */
     var optLevel: Float
+
+    var currentABI: ABI?
+
+    fun emitAbiCall(
+        fn: String,
+        abi: ABI,
+        args: List<Value<T>> = listOf(),
+        retsProvider: Provider<List<Storage<T>>> = { listOf() }
+    ) {
+        val argOwners = args.zip(abi.argRegs).mapTo(mutableSetOf()) { (v, r) ->
+            this.forceIntoReg(v, r)
+        }
+
+        val clobs = abi.clobRegs.mapTo(mutableSetOf()) {
+            this.forceAllocReg(this.optimal.int, it)
+        }
+
+        val oldAbi = this.currentABI
+        this.currentABI = abi
+        this.emitCall(fn)
+        this.currentABI = oldAbi
+
+        argOwners.zip(args).forEach { (o, a) ->
+            if (a !is Storage)
+                dealloc(o!!)
+        }
+
+        clobs.forEach(::dealloc)
+
+        val rets = retsProvider()
+        rets.zip(abi.retRegs).forEach { (dest, src) ->
+            storeReg(src, dest)
+        }
+    }
+
+    fun emitAbiCall(
+        fn: Value<T>,
+        abi: ABI,
+        args: List<Value<T>> = listOf(),
+        retsProvider: Provider<List<Storage<T>>> = { listOf() }
+    ) {
+        TODO()
+    }
+
+    fun deallocReg(name: String)
 
     enum class Use {
         STORE,

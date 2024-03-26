@@ -2,6 +2,7 @@ package vxcc.ir
 
 import vxcc.cg.CGEnv
 import vxcc.cg.Owner
+import vxcc.cg.Storage
 import vxcc.utils.flatten
 
 // TODO: check if blocks even exist
@@ -25,6 +26,29 @@ internal fun <E: CGEnv<E>> callEmitter(ctx: IrLocalScope<E>, env: E, call: IrCal
         "call" -> call.args[0].mapA { env.emitCall(it) }.mapB { env.emitCall(it) }
         "reduce" -> call.args[0].getA().reduced(env, call.type!!).emitMov(env, dest!!.storage!!.flatten())
         "addr" -> env.addrOf(call.args[0].getB(), dest!!.storage!!.flatten())
-        else -> throw Exception("No builtin function ${call.fn}!")
+        "abicall" -> {
+            val abi = ctx.parent.abis[call.args[0].getB()]
+                ?: error("Cannot perform abicall with undefined ABI!")
+
+            val args = call.args.drop(2).map { it.getA() }
+            val d = if (dest == null) listOf() else listOf(dest.storage!!.flatten())
+
+            call.args[1].mapA {
+                env.emitAbiCall(it, abi, args) { d }
+            }.mapB {
+                env.emitAbiCall(it, abi, args) { d }
+            }
+        }
+        "abiret" -> {
+            val abi = env.currentABI
+            if (call.args.isNotEmpty()) {
+                abi ?: error("Cannot return value with abiret if no ABI set (using abi ...)")
+                abi.retRegs.zip(call.args).forEach { (r, v) ->
+                    env.forceIntoReg(v.getA(), r)
+                }
+            }
+            env.emitRet()
+        }
+        else -> throw Exception("No builtin ${call.fn}!")
     }
 }

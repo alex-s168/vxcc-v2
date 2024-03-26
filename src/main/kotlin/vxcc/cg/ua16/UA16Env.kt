@@ -341,4 +341,33 @@ class UA16Env(
             emit("@call ${reg.name}")
         }
     }
+
+    override var currentABI: ABI? = null
+
+    override fun endFnGen() {
+        registers["r0"] = null
+        registers["r1"] = null
+    }
+
+    override fun storeReg(reg: String, dest: Storage<UA16Env>) {
+        if (dest is UA16Reg && dest.name == reg)
+            return
+        UA16Reg(reg, flagsOf(dest).totalWidth).emitMov(this, dest)
+    }
+
+    override fun ownerOf(storage: Storage<UA16Env>): Owner<UA16Env> {
+        registers.values.firstOrNull {
+            it?.storage?.flatten() == storage
+        }?.let {
+            return it
+        }
+
+        // TODO: we shouldn't forget static allocs
+
+        return Owner(Either.ofB(storage), flagsOf(storage))
+    }
+
+    override fun deallocReg(name: String) {
+        registers[name] = null
+    }
 }

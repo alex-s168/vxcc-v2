@@ -132,6 +132,10 @@ data class X86Env(
         tryClaim(index) ?: BestRegResult(index, true)
 
     private fun getBestAvailableReg(flags: Owner.Flags): BestRegResult? {
+        val clobRegs = currentABI?.clobRegs?.map { Reg.fromName(it).asIndex() }
+        fun canUse(i: Reg.Index) =
+            clobRegs == null || i in clobRegs
+
         val gp = flags.use in arrayOf(CGEnv.Use.SCALAR_AIRTHM, CGEnv.Use.STORE) && !flags.type.float && !flags.type.vector
 
         var found: Reg.Index? = null
@@ -145,14 +149,22 @@ data class X86Env(
                 0, // a
                 3, // d
             )) {
-                found = Reg.Index(Reg.Type.GP, i)
+                val index = Reg.Index(Reg.Type.GP, i)
+                if (!canUse(index))
+                    continue
+                found = index
+
                 return tryClaim(found) ?: continue
             }
         }
 
         if (gp && flags.totalWidth <= 64 && target.amd64_v1) {
             for (i in 0..7) {
-                found = Reg.Index(Reg.Type.GP64EX, i)
+                val index = Reg.Index(Reg.Type.GP64EX, i)
+                if (!canUse(index))
+                    continue
+                found = index
+
                 return tryClaim(found) ?: continue
             }
         }
@@ -162,7 +174,11 @@ data class X86Env(
                 (flags.use == CGEnv.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32)) &&
                 !fpuUse && flags.type.int) {
                 for (i in 0..7) {
-                    found = Reg.Index(Reg.Type.MM, i)
+                    val index = Reg.Index(Reg.Type.MM, i)
+                    if (!canUse(index))
+                        continue
+                    found = index
+
                     val reg = tryClaim(found) ?: continue
                     mmxUse = true
                     return reg
@@ -174,20 +190,32 @@ data class X86Env(
                 (flags.use == CGEnv.Use.STORE || flags.vecElementWidth!! in arrayOf(8, 16, 32, 64)) &&
                 (flags.type.float || flags.type.int && target.sse2)) {
                 for (i in 0..7) {
-                    found = Reg.Index(Reg.Type.XMM, i)
+                    val index = Reg.Index(Reg.Type.XMM, i)
+                    if (!canUse(index))
+                        continue
+                    found = index
+
                     val reg = tryClaim(found) ?: continue
                     return reg
                 }
                 if (target.amd64_v1) {
                     for (i in 0..7) {
-                        found = Reg.Index(Reg.Type.XMM64, i)
+                        val index = Reg.Index(Reg.Type.XMM64, i)
+                        if (!canUse(index))
+                            continue
+                        found = index
+
                         val reg = tryClaim(found) ?: continue
                         return reg
                     }
                 }
                 if (target.avx512f) {
                     for (i in 0..7) {
-                        found = Reg.Index(Reg.Type.ZMMEX, i)
+                        val index = Reg.Index(Reg.Type.ZMMEX, i)
+                        if (!canUse(index))
+                            continue
+                        found = index
+
                         val reg = tryClaim(found) ?: continue
                         return reg
                     }
@@ -219,14 +247,17 @@ data class X86Env(
             return o
         }
 
-        val owner = registers[reg.index]!!.v!!
-        val temp = alloc(owner.flags)
-        owner.storage!!.flatten().emitMov(this, temp.storage!!.flatten())
-        val new = owner.copy()
+        val old = registers[reg.index]!!.v!!
+        registers[reg.index] = Obj(Owner.temp())
+        val temp = alloc(old.flags)
+        old.storage!!.flatten().emitMov(this, temp.storage!!.flatten())
+        val new = old.copy()
         new.storage!!.flatten().asReg().vecElementWidth = flags.vecElementWidth
-        owner.storage = temp.storage
+        old.storage = temp.storage
         registers[reg.index] = Obj(new)
         new.storage = Either.ofB(new.storage!!.flatten().reducedStorage(this, flags))
+        if (old == new)
+            throw Exception("uh")
         return new
     }
 
@@ -317,7 +348,7 @@ data class X86Env(
                 val reg = ownerSto.asReg()
                 val id = reg.asIndex()
                 if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") }.v == null)
-                    throw Exception("Attempting to deallocate register twice! Double allocated?")
+                    throw Exception("Attempting to deallocate register $reg twice! Double allocated?")
                 if (id.type == Reg.Type.MM)
                     mmxUse = false
                 registers[id] = Obj(null)
@@ -647,5 +678,33 @@ data class X86Env(
 
     override fun comment(comment: String) {
         emit("; $comment")
+    }
+
+    override var currentABI: ABI? = null
+
+    override fun endFnGen() {
+        registers.replaceAll { _, _ -> Obj(null) }
+    }
+
+    override fun storeReg(reg: String, dest: Storage<X86Env>) {
+        if (dest is Reg && dest.name == reg)
+            return
+        Reg.fromName(reg).emitMov(this, dest)
+    }
+
+    override fun ownerOf(storage: Storage<X86Env>): Owner<X86Env> {
+        registers.values.firstOrNull {
+            it.v?.storage?.flatten() == storage
+        }?.let {
+            return it.v!!
+        }
+
+        // TODO: we shouldn't forget static allocs
+
+        return Owner(Either.ofB(storage), flagsOf(storage))
+    }
+
+    override fun deallocReg(name: String) {
+        registers[Reg.fromName(name).asIndex()] = Obj(null)
     }
 }

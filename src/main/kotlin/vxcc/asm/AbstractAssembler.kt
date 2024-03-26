@@ -2,8 +2,10 @@ package vxcc.asm
 
 import vxcc.asm.etca.ETCAAssembler
 import vxcc.arch.AbstractTarget
+import vxcc.utils.warn
 import kotlin.math.abs
 
+// TODO: local labels (starting with '.')
 abstract class AbstractAssembler<T: AbstractAssembler<T>>(
     val origin: Int,
     val target: AbstractTarget,
@@ -112,7 +114,7 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
         @JvmStatic
         protected fun depInstrName(old: String, new: String): Instruction<ETCAAssembler> =
             Instruction { args ->
-                System.err.println("Deprecated instruction name \"$old\". Use \"$new\" instead.")
+                warn("Deprecated instruction name \"$old\". Use \"$new\" instead.")
                 instruction(new, args, mapOf())
             }
 

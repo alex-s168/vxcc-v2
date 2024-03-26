@@ -1,0 +1,23 @@
+type int = :int w:32
+
+abi vabi = inr:int@edi,int@esi,int@eax,int@ebx outr:int@eax,int@ebx clobr:int@ecx,int@edx
+
+fn sum
+    using abi vabi
+
+    %s = int [add, %arg0, %arg1]
+    ~ %arg0
+    ~ %arg1
+    ~ %arg>1
+    [abiret, %s]
+    ~ %s
+end
+
+export fn _start
+    %a = int 1
+    %b = int 2
+    %s = int [abicall, ::vabi, ::sum, %a, %b]
+    ~ %a
+    ~ %b
+    ~ %s
+end

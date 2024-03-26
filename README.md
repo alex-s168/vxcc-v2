@@ -7,6 +7,7 @@ This repository contains:
 - [ua16](https://github.com/alex-s168/ua16) codegen and assembler
 - [etc.a](https://github.com/ETC-A/etca-spec) assember
 - VXCC-IR frontend
+- custom binary format for some targets
 
 ## Why
 Really Hackable compiler backend with support for weird integer sizes and weird vector sizes.

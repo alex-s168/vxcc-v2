@@ -4,6 +4,7 @@ import blitz.*
 import blitz.collections.ByteVec
 import vxcc.arch.AbstractTarget
 import vxcc.arch.parseTargetStr
+import vxcc.utils.warn
 
 data class VxBin(
     val target: AbstractTarget,
@@ -53,7 +54,7 @@ data class VxBin(
     fun endLinking() {
         sections.forEach {
             it.unresolved.forEach { r ->
-                System.err.println("Unresolved reference to \"${r.to}\" in section \"${it.name}\"!")
+                warn("Unresolved reference to \"${r.to}\" in section \"${it.name}\"!")
             }
         }
 
