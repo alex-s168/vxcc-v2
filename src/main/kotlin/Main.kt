@@ -14,7 +14,7 @@ fun argParse(argsIn: Array<String>): Map<String, String?> {
             args[current] = null
         } else {
             if (args[current] != null)
-                throw Exception("Unexpected argument: $a")
+                error("Unexpected argument: $a")
             args[current] = a
         }
     }
@@ -71,13 +71,13 @@ fun main(argsIn: Array<String>) {
         when (it) {
             "size" -> CGEnv.OptMode.SIZE
             "speed" -> CGEnv.OptMode.SPEED
-            else -> throw Exception("Invalid opt mode $it!")
+            else -> error("Invalid opt mode $it!")
         }
     } ?: CGEnv.OptMode.SPEED
-    val input = File(args["input"] ?: throw Exception("Input not specified!")).also {
-        if (!it.canRead()) throw Exception("File not readable!")
+    val input = File(args["input"] ?: error("Input not specified!")).also {
+        if (!it.canRead()) error("File not readable!")
     }
-    val output = File(args["output"] ?: throw Exception("Output not specified!"))
+    val output = File(args["output"] ?: error("Output not specified!"))
     when (operation) {
         "asm" -> {
             val asm = asmForTarget(target, args["origin"]?.toInt())
@@ -100,6 +100,6 @@ fun main(argsIn: Array<String>) {
 
             exception?.let { throw it }
         }
-        else -> throw Exception("Unknown operation")
+        else -> error("Unknown operation")
     }
 }

@@ -1,8 +1,8 @@
 package vxcc.cg.x86
 
 import vxcc.cg.*
-import vxcc.utils.Either
-import vxcc.utils.flatten
+import blitz.Either
+import blitz.flatten
 import kotlin.math.ceil
 import kotlin.math.log2
 
@@ -19,7 +19,7 @@ data class X86ArrIndex(
 
     internal fun emitOffset(env: X86Env, dest: Storage<X86Env>) {
         if (dest.getWidth() !in arrayOf(32, 64))
-            throw Exception("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
+            error("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
 
         when (stride) {
             1L, 2L, 4L, 8L -> {
@@ -54,7 +54,7 @@ data class X86ArrIndex(
 
     internal fun emitIndex(env: X86Env, dest: Storage<X86Env>) {
         if (dest.getWidth() !in arrayOf(32, 64))
-            throw Exception("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
+            error("Can only emitArrayOffset() or emitArrayIndex() into 32 or 64 bit destinations!")
 
         TODO()
     }

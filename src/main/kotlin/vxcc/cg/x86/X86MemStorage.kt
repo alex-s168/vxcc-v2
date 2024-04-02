@@ -5,7 +5,7 @@ import vxcc.cg.utils.DefFunOpImpl
 import vxcc.cg.utils.DefStaticLogicOpImpl
 import vxcc.cg.utils.FakeBitSlice
 import vxcc.cg.utils.FakeVec
-import vxcc.utils.flatten
+import blitz.flatten
 
 class X86MemStorage(
     val emit: String,
@@ -29,7 +29,7 @@ class X86MemStorage(
         when (dest) {
             is MemStorage -> {
                 if (dest.getWidth() != flags.totalWidth)
-                    throw Exception("Can not move into memory location with different size than source! use reducedStorage()")
+                    error("Can not move into memory location with different size than source! use reducedStorage()")
 
                 val sizes = mutableListOf(8, 16)
                 if (env.target.ia32) sizes.add(32)
@@ -85,7 +85,7 @@ class X86MemStorage(
                                     env.emit("  vmovups ${dest.name}, ${sizeStr(dest.totalWidth)} [$emit]")
                                 }
 
-                            else -> throw Exception("wtf")
+                            else -> error("wtf")
                         }
                     }
                 }

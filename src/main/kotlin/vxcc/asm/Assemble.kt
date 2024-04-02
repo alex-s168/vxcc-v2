@@ -34,7 +34,7 @@ fun assemble(code: String, asm: Assembler) {
             continue
         if (line.startsWith('[')) {
             if (!line.endsWith(']'))
-                throw Exception("Invalid! Example: [param1, param2, param3]")
+                error("Invalid! Example: [param1, param2, param3]")
             params += line.drop(1).dropLast(1).split(',').map { it.trim() }
         } else if (line.endsWith(':')) {
             var name = line.dropLast(1)

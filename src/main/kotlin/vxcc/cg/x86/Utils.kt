@@ -3,8 +3,8 @@ package vxcc.cg.x86
 import vxcc.cg.*
 import vxcc.cg.utils.FakeBitSlice
 import vxcc.cg.utils.FakeVec
-import vxcc.utils.Either
-import vxcc.utils.flatten
+import blitz.Either
+import blitz.flatten
 
 fun Value<X86Env>.asReg() =
     this as Reg
@@ -16,7 +16,7 @@ fun sizeStr(width: Int) =
         32 -> "dword"
         64 -> "qword"
         128 -> "oword"
-        else -> throw Exception("Invalid stride (impl error)")
+        else -> error("Invalid stride (impl error)")
     }
 
 fun Value<X86Env>.getWidth(): Int =

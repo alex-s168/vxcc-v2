@@ -1,7 +1,7 @@
 package vxcc.cg.utils
 
+import blitz.flatten
 import vxcc.cg.*
-import vxcc.utils.flatten
 
 // TODO: maybe there are vecs with the same stride but just different total length; use those if possible
 
@@ -48,7 +48,7 @@ open class FakeVec<E: CGEnv<E>> private constructor(
                     owner.storage!!.flatten().emitMov(env, dest.offsetBytes(index * elemWidth / 8))
                 }
             }
-            else -> throw Exception("Incompatible destination!")
+            else -> error("Incompatible destination!")
         }
 
     override fun emitZero(env: E) =

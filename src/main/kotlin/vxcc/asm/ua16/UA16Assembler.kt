@@ -89,7 +89,7 @@ class UA16Assembler(
             },
             "@retnc" to Instruction { args ->
                 if (!args[0].startsWith("clob="))
-                    throw Exception("Invalid usage! Usage: @retnc clob=reg")
+                    error("Invalid usage! Usage: @retnc clob=reg")
                 val clob = args[0].substringAfter("clob=")
                 assemble("plr $clob", this)
                 assemble("clc", this)
@@ -101,7 +101,7 @@ class UA16Assembler(
                 val dest = args[0]
                 val src = args[1]
                 if (!args[2].startsWith("clob="))
-                    throw Exception("Invalid usage! Usage: @sbc dest, src, clob=reg")
+                    error("Invalid usage! Usage: @sbc dest, src, clob=reg")
                 val clob = args[2].substringAfter("clob=")
 
                 assemble("not $clob, $src", this)
@@ -116,7 +116,7 @@ class UA16Assembler(
     override fun finish(): ByteArray {
         refs.forEach { ref ->
             next = ref.first
-            var value = (labels[ref.second] ?: throw Exception("Label \"${ref.second}\" not found!")).pos
+            var value = (labels[ref.second] ?: error("Label \"${ref.second}\" not found!")).pos
             val dest = ref.third
             repeat(4) {
                 assemble("sbr ${value and 0xF}", this)
@@ -133,9 +133,9 @@ class UA16Assembler(
             "r0" -> 0
             "r1" -> 1
             "r2" -> 2
-            "c1" -> throw Exception("'c1' should not be used in assembly! Use '1' instead!")
-            "1" -> if (!selectPc) 3 else throw Exception("Can not use constant 1 for this instruction; program counter register selected instead!")
-            "pc" -> if (selectPc) 3 else throw Exception("Can not use program counter register for this instruction; constant 1 is selected instead!")
-            else -> throw Exception("Unknown register $name!")
+            "c1" -> error("'c1' should not be used in assembly! Use '1' instead!")
+            "1" -> if (!selectPc) 3 else error("Can not use constant 1 for this instruction; program counter register selected instead!")
+            "pc" -> if (selectPc) 3 else error("Can not use program counter register for this instruction; constant 1 is selected instead!")
+            else -> error("Unknown register $name!")
         }
 }

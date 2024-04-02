@@ -2,8 +2,7 @@ package vxcc.ir
 
 import vxcc.cg.CGEnv
 import vxcc.cg.Owner
-import vxcc.cg.Storage
-import vxcc.utils.flatten
+import blitz.flatten
 
 // TODO: check if blocks even exist
 
@@ -49,6 +48,6 @@ internal fun <E: CGEnv<E>> callEmitter(ctx: IrLocalScope<E>, env: E, call: IrCal
             }
             env.emitRet()
         }
-        else -> throw Exception("No builtin ${call.fn}!")
+        else -> error("No builtin ${call.fn}!")
     }
 }

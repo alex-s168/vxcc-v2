@@ -3,8 +3,7 @@ package vxcc.cg
 import blitz.Provider
 import vxcc.ir.IrGlobalScope
 import vxcc.ir.ir
-import vxcc.utils.Either
-import vxcc.utils.flatten
+import blitz.Either
 
 interface CGEnv<T: CGEnv<T>> {
     val source: StringBuilder

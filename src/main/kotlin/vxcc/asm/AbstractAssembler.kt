@@ -1,8 +1,8 @@
 package vxcc.asm
 
+import blitz.term.Terminal
 import vxcc.asm.etca.ETCAAssembler
 import vxcc.arch.AbstractTarget
-import vxcc.utils.warn
 import kotlin.math.abs
 
 // TODO: local labels (starting with '.')
@@ -34,14 +34,14 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
 
     protected fun byteBits(bitsIn: String, vararg replIn: Pair<String, Int>) {
         if (bitsIn.length != 8)
-            throw Exception("bitsIn not 8 bits!")
+            error("bitsIn not 8 bits!")
         val repl = mapOf(*replIn)
         var bits = bitsIn.replace('.', '0')
         repl.forEach { (k, v) ->
             val neg = v < 0
             var e = abs(v).toString(2).padStart(k.length, '0')
             if (e.length != k.length)
-                throw Exception("Too big value")
+                error("Too big value")
             if (neg) {
                 val t = e.toUInt(2).inv() + 1u
                 e = t.toUByte().toString(2).padStart(k.length, '0')
@@ -57,7 +57,7 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
             next = parseNum(flags["orig"]!!)
 
         if (!flags.keys.all { it == "orig" })
-            throw Exception("Unexpected flag! Allowed here: orig")
+            error("Unexpected flag! Allowed here: orig")
 
         data(bytes)
     }
@@ -70,7 +70,7 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
 
         val all = listOf("orig", "export")
         if (!flags.keys.all { it in all })
-            throw Exception("Unexpected flag! Allowed here: orig")
+            error("Unexpected flag! Allowed here: orig")
 
         labels[name] = LabelData(next, export)
     }
@@ -81,17 +81,17 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
                 next = parseNum(flags["orig"]!!)
 
             if (!flags.keys.all { it == "orig" })
-                throw Exception("Unexpected flag! Allowed here: orig")
+                error("Unexpected flag! Allowed here: orig")
 
-            val inst = instructions[name] ?: throw Exception("Instruction $name not found!")
+            val inst = instructions[name] ?: error("Instruction $name not found!")
 
             inst.requiresExt.firstOrNull { it !in target.targetFlags }?.let {
-                throw Exception("Required target flag $it for instruction $inst not set!")
+                error("Required target flag $it for instruction $inst not set!")
             }
 
             inst.parse(this as T, args)
         } catch (e: Exception) {
-            throw Exception("Error in instruction \"$name ${args.joinToString()}\": ${e.message}")
+            error("Error in instruction \"$name ${args.joinToString()}\": ${e.message}")
         }
     }
 
@@ -114,7 +114,7 @@ abstract class AbstractAssembler<T: AbstractAssembler<T>>(
         @JvmStatic
         protected fun depInstrName(old: String, new: String): Instruction<ETCAAssembler> =
             Instruction { args ->
-                warn("Deprecated instruction name \"$old\". Use \"$new\" instead.")
+                Terminal.errln("Deprecated instruction name \"$old\". Use \"$new\" instead.")
                 instruction(new, args, mapOf())
             }
 

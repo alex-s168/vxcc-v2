@@ -2,7 +2,7 @@ package vxcc.cg.x86
 
 import vxcc.cg.*
 import vxcc.cg.utils.DefStaticOpImpl
-import vxcc.utils.Either
+import blitz.Either
 
 interface AbstractX86Value: Value<X86Env>, DefStaticOpImpl<X86Env> {
     /** dest = this + index * stride */

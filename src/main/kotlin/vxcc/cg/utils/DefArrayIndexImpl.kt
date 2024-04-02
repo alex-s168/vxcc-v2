@@ -1,7 +1,7 @@
 package vxcc.cg.utils
 
+import blitz.flatten
 import vxcc.cg.*
-import vxcc.utils.flatten
 
 interface DefArrayIndexImpl<E: CGEnv<E>>: Value<E> {
     override fun <V : Value<E>> emitArrayIndex(env: E, index: V, stride: Long, dest: Storage<E>) {

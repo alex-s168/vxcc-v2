@@ -5,9 +5,9 @@ import vxcc.cg.*
 import vxcc.cg.utils.DefMemOpImpl
 import vxcc.cg.utils.FakeBitSlice
 import vxcc.cg.utils.FakeVec
-import vxcc.utils.Either
-import vxcc.utils.Obj
-import vxcc.utils.flatten
+import blitz.Either
+import blitz.Obj
+import blitz.flatten
 import kotlin.math.ceil
 
 data class X86Env(
@@ -37,29 +37,29 @@ data class X86Env(
 
     init {
         for (i in 0..5)
-            registers[Reg.Index(Reg.Type.GP, i)] = Obj(null)
+            registers[Reg.Index(Reg.Type.GP, i)] = Obj.of(null)
 
         if (target.amd64_v1) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.GP64EX, i)] = Obj(null)
+                registers[Reg.Index(Reg.Type.GP64EX, i)] = Obj.of(null)
 
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.XMM64, i)] = Obj(null)
+                registers[Reg.Index(Reg.Type.XMM64, i)] = Obj.of(null)
         }
 
         if (target.mmx) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.MM, i)] = Obj(null)
+                registers[Reg.Index(Reg.Type.MM, i)] = Obj.of(null)
         }
 
         if (target.sse1) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.XMM, i)] = Obj(null)
+                registers[Reg.Index(Reg.Type.XMM, i)] = Obj.of(null)
         }
 
         if (target.avx512f) {
             for (i in 0..7)
-                registers[Reg.Index(Reg.Type.ZMMEX, i)] = Obj(null)
+                registers[Reg.Index(Reg.Type.ZMMEX, i)] = Obj.of(null)
         }
     }
 
@@ -107,21 +107,21 @@ data class X86Env(
 
     private fun tryClaim(index: Reg.Index): BestRegResult? {
         val owner = registers.getOrElse(index) {
-            throw Exception("Register with index $index not supported on target $target!")
+            error("Register with index $index not supported on target $target!")
         }.v ?: return BestRegResult(index, false)
 
         if (owner.shouldBeDestroyed) {
-            registers[index] = Obj(null)
+            registers[index] = Obj.of(null)
             return BestRegResult(index, false)
         }
 
         if (owner.canBeDepromoted != null) {
-            registers[index] = Obj(Owner.temp()) // we don't want alloc() to return the same reg
+            registers[index] = Obj.of(Owner.temp()) // we don't want alloc() to return the same reg
             val new = alloc(owner.flags)
             owner.storage!!.flatten().emitMov(this, new.storage!!.flatten())
             dealloc(owner)
             owner.storage = new.storage
-            registers[index] = Obj(null)
+            registers[index] = Obj.of(null)
             return BestRegResult(index, false)
         }
 
@@ -233,7 +233,7 @@ data class X86Env(
             .reducedStorage(this, flags)
             .let { r ->
                 val o = Owner(Either.ofB(r), flags)
-                registers[reg.index] = Obj(o)
+                registers[reg.index] = Obj.of(o)
                 o
             }
 
@@ -243,21 +243,21 @@ data class X86Env(
                 .also { it.vecElementWidth = flags.vecElementWidth }
                 .reducedStorage(this, flags)
             val o = Owner(Either.ofB(r), flags)
-            registers[reg.index] = Obj(o)
+            registers[reg.index] = Obj.of(o)
             return o
         }
 
         val old = registers[reg.index]!!.v!!
-        registers[reg.index] = Obj(Owner.temp())
+        registers[reg.index] = Obj.of(Owner.temp())
         val temp = alloc(old.flags)
         old.storage!!.flatten().emitMov(this, temp.storage!!.flatten())
         val new = old.copy()
         new.storage!!.flatten().asReg().vecElementWidth = flags.vecElementWidth
         old.storage = temp.storage
-        registers[reg.index] = Obj(new)
+        registers[reg.index] = Obj.of(new)
         new.storage = Either.ofB(new.storage!!.flatten().reducedStorage(this, flags))
         if (old == new)
-            throw Exception("uh")
+            error("uh")
         return new
     }
 
@@ -291,7 +291,7 @@ data class X86Env(
 
     fun forceAllocReg(flags: Owner.Flags): Owner<X86Env> =
         getBestAvailableReg(flags)?.let { forceAllocReg(it, flags) }
-            ?: throw Exception("No compatible register for $flags")
+            ?: error("No compatible register for $flags")
 
     private val spRegName = if (target.amd64_v1) "rsp" else if (target.ia32) "esp" else "sp"
     private val bpRegName = if (target.amd64_v1) "rbp" else if (target.ia32) "ebp" else "bp"
@@ -347,11 +347,11 @@ data class X86Env(
             is Reg -> {
                 val reg = ownerSto.asReg()
                 val id = reg.asIndex()
-                if (registers.getOrElse(id) { throw Exception("Attempting to deallocate non-existent register!") }.v == null)
-                    throw Exception("Attempting to deallocate register $reg twice! Double allocated?")
+                if (registers.getOrElse(id) { error("Attempting to deallocate non-existent register!") }.v == null)
+                    error("Attempting to deallocate register $reg twice! Double allocated?")
                 if (id.type == Reg.Type.MM)
                     mmxUse = false
-                registers[id] = Obj(null)
+                registers[id] = Obj.of(null)
             }
         }
     }
@@ -364,7 +364,7 @@ data class X86Env(
         else if (size <= 128 && target.sse1) 128
         else if (size <= 256 && target.avx2) 256
         else if (size <= 512 && target.avx512f) 512
-        else throw Exception("above native register size!")
+        else error("above native register size!")
 
     override fun nextUpNative(flags: Owner.Flags): Owner.Flags =
         flags.copy(totalWidth = makeRegSize(flags.totalWidth))
@@ -608,12 +608,12 @@ data class X86Env(
                 when (where) {
                     "r" -> what.moveIntoReg(this)
                     "rm" -> Unit
-                    else -> throw Exception("Unknown inline assembly arg destination $where")
+                    else -> error("Unknown inline assembly arg destination $where")
                 }
                 str.append(when (val va = what.storage!!.flatten()) {
                     is X86MemStorage -> "${sizeStr(va.flags.totalWidth)} [${va.emit}]"
                     is Reg -> va.name
-                    else -> throw Exception("wa")
+                    else -> error("wa")
                 })
                 str.append(' ')
             }
@@ -683,7 +683,7 @@ data class X86Env(
     override var currentABI: ABI? = null
 
     override fun endFnGen() {
-        registers.replaceAll { _, _ -> Obj(null) }
+        registers.replaceAll { _, _ -> Obj.of(null) }
     }
 
     override fun storeReg(reg: String, dest: Storage<X86Env>) {
@@ -705,6 +705,6 @@ data class X86Env(
     }
 
     override fun deallocReg(name: String) {
-        registers[Reg.fromName(name).asIndex()] = Obj(null)
+        registers[Reg.fromName(name).asIndex()] = Obj.of(null)
     }
 }

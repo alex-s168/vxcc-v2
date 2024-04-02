@@ -2,10 +2,10 @@ package vxcc.ir
 
 import blitz.collections.contents
 import vxcc.cg.*
-import vxcc.utils.Either
-import vxcc.utils.flatten
-import vxcc.utils.splitWithNesting
-import vxcc.utils.warn
+import blitz.Either
+import blitz.flatten
+import blitz.str.splitWithNesting
+import blitz.term.Terminal
 
 /*
 Example code:
@@ -85,7 +85,7 @@ private fun <E: CGEnv<E>> parseAndEmitVal(
         }
     }
     val (typeStr, rest) = v.split(' ', limit = 2).also {
-        if (it.size != 2) throw Exception("Size needs to be specified!")
+        if (it.size != 2) error("Size needs to be specified!")
     }
     val type = typeResolver(typeStr)
     return if (rest.startsWith('[')) {
@@ -214,17 +214,17 @@ private fun <E: CGEnv<E>> parseAndEmit(
                             else if (where.startsWith(':'))
                                 where.substring(1)
                             else
-                                throw Exception("invalid location")
+                                error("invalid location")
                             ctx.locals[name] = type to Owner(
                                 Either.ofB(env.addrOfAsMemStorage(label, type)),
                                 type
                             )
                         }
                     } else {
-                        throw Exception()
+                        error("")
                     }
                 }  else {
-                    throw Exception("Unexpected symbol in line: $line")
+                    error("Unexpected symbol in line: $line")
                 }
             }
             '[' -> {
@@ -264,7 +264,7 @@ private fun <E: CGEnv<E>> parseAndEmit(
                 }.toTypedArray()
                 env.inlineAsm(cmd, *args)
             }
-            else -> throw Exception("First symbol in line unexpected: $line")
+            else -> error("First symbol in line unexpected: $line")
         }
     }
 }
@@ -316,7 +316,7 @@ fun <E: CGEnv<E>> ir(
             val localCtx = IrLocalScope(ctx)
             parseAndEmit(fnLines, env, localCtx, verbose) { ctx.types[it]!! }
             localCtx.locals.forEach { (name, _) ->
-                warn("Local $name not deallocated! (Can lead to bad code)")
+                Terminal.errln("Local $name not deallocated! (Can lead to bad code)")
             }
             if (verbose)
                 env.comment("end")
@@ -357,11 +357,11 @@ fun <E: CGEnv<E>> ir(
                     val vWidth = defFlags["w"]!!.toInt()
                     Owner.Flags(CGEnv.Use.SCALAR_AIRTHM, vWidth, null, Type.FLT)
                 }
-                else -> throw Exception("unknown type type")
+                else -> error("unknown type type")
             }
             ctx.types[name] = type
         } else {
-            throw Exception("Unknown kind of declaration")
+            error("Unknown kind of declaration")
         }
     }
 }

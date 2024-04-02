@@ -1,7 +1,7 @@
 package vxcc.cg.utils
 
+import blitz.flatten
 import vxcc.cg.*
-import vxcc.utils.flatten
 import kotlin.math.pow
 
 open class FakeBitSlice<E: CGEnv<E>>(

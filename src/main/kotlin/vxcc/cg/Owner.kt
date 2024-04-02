@@ -1,6 +1,6 @@
 package vxcc.cg
 
-import vxcc.utils.Either
+import blitz.Either
 
 data class Owner<E: CGEnv<E>>(
     var storage: Either<StorageWithOwner<E>, Storage<E>>?,

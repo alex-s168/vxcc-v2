@@ -25,7 +25,7 @@ class UA16Reg(
                         env.emit("adc ${addr.name}, 1")
                         env.emit("sto ${addr.name}, $name")
                     }
-                    else -> throw Exception("wtf")
+                    else -> error("wtf")
                 }
             }
             else -> dest.useInRegWriteBack(env, copyInBegin = false) { dreg ->

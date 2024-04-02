@@ -13,7 +13,7 @@ import vxcc.cg.x86.X86Env
 fun parseTargetStr(cpu: String): AbstractTarget {
     val split = cpu.split(':')
     if (split.size != 3)
-        throw Exception("Invalid target string! Example: \"x86::amd64_v3,avx512f\"")
+        error("Invalid target string! Example: \"x86::amd64_v3,avx512f\"")
 
     val (tg, sub, feat) = split
 
@@ -21,7 +21,7 @@ fun parseTargetStr(cpu: String): AbstractTarget {
         "x86" -> X86Target()
         "ua16" -> UA16Target()
         "etca" -> ETCATarget()
-        else -> throw Exception("Invalid target major! Available: \"x86\", \"ua16\", \"etca\"")
+        else -> error("Invalid target major! Available: \"x86\", \"ua16\", \"etca\"")
     }
     t.loadSub(sub)
     t.targetFlags += feat
@@ -33,13 +33,13 @@ fun envForTarget(tg: AbstractTarget, origin: Int? = null): CGEnv<*> =
         is X86Target -> X86Env(tg)
         is UA16Target -> UA16Env(origin ?: 0, tg)
         is ETCATarget -> TODO("etca codegen")
-        else -> throw Exception("wtf")
+        else -> error("wtf")
     }
 
 fun asmForTarget(tg: AbstractTarget, origin: Int? = null): Assembler =
     when (tg) {
-        is X86Target -> throw Exception("x86 assembler not yet existent")
+        is X86Target -> error("x86 assembler not yet existent")
         is UA16Target -> UA16Assembler(origin ?: 0, tg)
         is ETCATarget -> ETCAAssembler(origin ?: 0, tg)
-        else -> throw Exception("wtf")
+        else -> error("wtf")
     }

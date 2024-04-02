@@ -50,7 +50,7 @@ abstract class AbstractTarget {
 
     fun loadSub(tg: String) {
         val st = subTargets[tg]
-            ?: throw Exception("Invalid sub-target \"$tg\"! Available: ${subTargets.keys.joinToString { "\"$it\"" }}")
+            ?: error("Invalid sub-target \"$tg\"! Available: ${subTargets.keys.joinToString { "\"$it\"" }}")
         targetFlags += st
     }
 

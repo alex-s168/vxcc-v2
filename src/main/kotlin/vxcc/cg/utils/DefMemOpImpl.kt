@@ -1,7 +1,7 @@
 package vxcc.cg.utils
 
+import blitz.flatten
 import vxcc.cg.*
-import vxcc.utils.flatten
 
 interface DefMemOpImpl<T: CGEnv<T>>: CGEnv<T> {
     override fun memCpy(src: MemStorage<T>, dest: MemStorage<T>, len: Int) {

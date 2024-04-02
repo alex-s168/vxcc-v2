@@ -46,7 +46,7 @@ class ETCAAssembler(
                                 byteBits("dddiiiii", "ddd" to src, "iiiii" to dest)
                             }
                         } catch (ignored: Exception) {
-                            throw Exception("Invalid combination of operands")
+                            error("Invalid combination of operands")
                         }
                     }
                 }
@@ -98,7 +98,7 @@ class ETCAAssembler(
 
                 if (args[0].startsWith('[')) {
                     if ("stack" !in target.targetFlags)
-                        throw Exception("Required extension \"stack\" for absolute register jmp!")
+                        error("Required extension \"stack\" for absolute register jmp!")
                     val reg = parseReg(args[0].drop(1).dropLast(1))
                     byteBits("10101111")
                     byteBits("rrr0cccc", "rrr" to reg, "cccc" to cond)
@@ -114,7 +114,7 @@ class ETCAAssembler(
                     byteBits("rrr1cccc", "rrr" to reg, "cccc" to cond)
                 } else {
                     if (name != "call")
-                        throw Exception("Conditional calls only supported for absolute register calls!")
+                        error("Conditional calls only supported for absolute register calls!")
 
                     TODO("relative calls")
                 }
@@ -131,7 +131,7 @@ class ETCAAssembler(
             ".nz" ->0b0001
             ".ne" ->0b0001
             ".n" -> 0b0010
-            ".nn" -> throw Exception("Use jmp.p instead of jmp.nn!")
+            ".nn" -> error("Use jmp.p instead of jmp.nn!")
             ".p" -> 0b0011
             ".c" -> 0b0100
             ".b" -> 0b0100
@@ -147,7 +147,7 @@ class ETCAAssembler(
             ".g" -> 0b1101
             ".never" -> 0b1111
             "" -> 0b1110
-            else -> throw Exception("Not a condition suffix $cond")
+            else -> error("Not a condition suffix $cond")
         }
 
     fun parseCR(reg: String): Int =
@@ -164,16 +164,16 @@ class ETCAAssembler(
             "INT_DATA"-> requireFeat("int", 9)
             "INT_SCRATCH_0"-> requireFeat("int", 10)
             "INT_SCRATCH_1"-> requireFeat("int", 11)
-            else -> throw Exception("Unknown control register $reg")
+            else -> error("Unknown control register $reg")
         }
 
     fun parseReg(reg: String): Int {
         if (reg.startsWith('r')) {
             val id = reg.substring(1).toUIntOrNull()
-                ?: throw Exception("Invalid register!")
+                ?: error("Invalid register!")
 
             if (id > 7u)
-                throw Exception("Invalid register!")
+                error("Invalid register!")
 
             return when (id) {
                 5u -> error("r5 should be referred to as bp to avoid confusion")
@@ -187,7 +187,7 @@ class ETCAAssembler(
             "bp" -> 5
             "sp" -> 6
             "ln" -> 7
-            else -> throw Exception("Invalid register!")
+            else -> error("Invalid register!")
         }
     }
 
@@ -252,9 +252,9 @@ class ETCAAssembler(
             next = ref.where
             val dest = parseLabelOrNum(ref.dest) - ref.where
             if (dest > Byte.MAX_VALUE * 2)
-                throw Exception("jump rel9 too big")
+                error("jump rel9 too big")
             if (dest < Byte.MIN_VALUE * 2)
-                throw Exception("jump rel9 too small")
+                error("jump rel9 too small")
 
             val destBin = dest.toString(2).padStart(9, '0')
 

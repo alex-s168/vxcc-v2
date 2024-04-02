@@ -1,9 +1,9 @@
 package vxcc.cg.x86
 
+import blitz.flatten
 import vxcc.cg.*
 import vxcc.cg.utils.DefStaticLogicOpImpl
 import vxcc.cg.utils.FakeBitSlice
-import vxcc.utils.flatten
 
 // TODO: check destination size when operating
 
@@ -82,16 +82,16 @@ data class Reg(
                 val substr = name.substring(1)
                 return substr.toIntOrNull()?.let {
                     if (it !in 8..15)
-                        throw Exception("Register $name does not exist!")
+                        error("Register $name does not exist!")
                     Reg(name, 64, Type.GP64EX, it - 8)
                 } ?: Reg(name, 64, Type.GP, fromName(substr).localId)
             }
 
             if (name.startsWith("mm")) {
                 val id = name.substring(2).toIntOrNull()
-                    ?: throw Exception("Register $name does not exist!")
+                    ?: error("Register $name does not exist!")
                 if (id !in 0..7)
-                    throw Exception("Register $name does not exist!")
+                    error("Register $name does not exist!")
                 return Reg(name, 64, Type.MM, id)
             }
 
@@ -100,20 +100,20 @@ data class Reg(
             val zmm = name.startsWith("zmm")
             if (xmm || ymm || zmm) {
                 val id = name.substring(3).toIntOrNull()
-                    ?: throw Exception("Register $name does not exist!")
+                    ?: error("Register $name does not exist!")
                 val size = if (xmm) 128 else if (ymm) 256 else 512
                 return when (id) {
                     in 0..7 -> Reg(name, size, Type.XMM, id)
                     in 8..15 -> Reg(name, size, Type.XMM64, id)
                     in 16..23 -> {
-                        if (!zmm) throw Exception("Register $name does not exist!")
+                        if (!zmm) error("Register $name does not exist!")
                         Reg(name, 512, Type.ZMMEX, id)
                     }
-                    else -> throw Exception("Register $name does not exist!")
+                    else -> error("Register $name does not exist!")
                 }
             }
 
-            throw Exception("Register $name does not exist!")
+            error("Register $name does not exist!")
         }
 
         fun from(index: Index, size: Int): Reg =
@@ -135,7 +135,7 @@ data class Reg(
                     3 -> Reg("dl",  8, Type.GP, localId)
                     4 -> Reg("sil", 8, Type.GP, localId)
                     5 -> Reg("dil", 8, Type.GP, localId)
-                    else -> throw Exception("There are only 6 GP registers!")
+                    else -> error("There are only 6 GP registers!")
                 }
                 16 -> when (localId) {
                     0 -> Reg("ax", 16, Type.GP, localId)
@@ -144,7 +144,7 @@ data class Reg(
                     3 -> Reg("dx", 16, Type.GP, localId)
                     4 -> Reg("si", 16, Type.GP, localId)
                     5 -> Reg("di", 16, Type.GP, localId)
-                    else -> throw Exception("There are only 6 GP registers!")
+                    else -> error("There are only 6 GP registers!")
                 }
                 32 -> when (localId) {
                     0 -> Reg("eax", 32, Type.GP, localId)
@@ -153,7 +153,7 @@ data class Reg(
                     3 -> Reg("edx", 32, Type.GP, localId)
                     4 -> Reg("esi", 32, Type.GP, localId)
                     5 -> Reg("edi", 32, Type.GP, localId)
-                    else -> throw Exception("There are only 6 GP registers!")
+                    else -> error("There are only 6 GP registers!")
                 }
                 64 -> when (localId) {
                     0 -> Reg("rax", 64, Type.GP, localId)
@@ -162,61 +162,61 @@ data class Reg(
                     3 -> Reg("rdx", 64, Type.GP, localId)
                     4 -> Reg("rsi", 64, Type.GP, localId)
                     5 -> Reg("rdi", 64, Type.GP, localId)
-                    else -> throw Exception("There are only 6 GP registers!")
+                    else -> error("There are only 6 GP registers!")
                 }
-                else -> throw Exception("Invalid GP register size!")
+                else -> error("Invalid GP register size!")
             }
 
         fun getGP64EX(localId: Int, size: Int): Reg {
             if (localId !in 0..7)
-                throw Exception("There are only 8 GP64EX registers!")
+                error("There are only 8 GP64EX registers!")
             val id = localId + 8
             return when (size) {
                 8 -> Reg("r${id}b", 8, Type.GP64EX, localId)
                 16 -> Reg("r${id}w", 16, Type.GP64EX, localId)
                 32 -> Reg("r${id}d", 32, Type.GP64EX, localId)
                 64 -> Reg("r$id", 64, Type.GP64EX, localId)
-                else -> throw Exception("Invalid GP64EX register size!")
+                else -> error("Invalid GP64EX register size!")
             }
         }
 
         fun getMM(localId: Int, size: Int): Reg {
             if (localId !in 0..7)
-                throw Exception("There are only 8 MM registers!")
+                error("There are only 8 MM registers!")
             if (size != 64)
-                throw Exception("Invalid MM register size!")
+                error("Invalid MM register size!")
             return Reg("mm${localId}", 64, Type.MM, localId)
         }
 
         fun getXMM(localId: Int, size: Int): Reg {
             if (localId !in 0..7)
-                throw Exception("There are only 8 XMM registers!")
+                error("There are only 8 XMM registers!")
             return when (size) {
                 128 -> Reg("xmm${localId}", 128, Type.XMM, localId)
                 256 -> Reg("ymm${localId}", 256, Type.XMM, localId)
                 512 -> Reg("zmm${localId}", 512, Type.XMM, localId)
-                else -> throw Exception("Invalid XMM register size!")
+                else -> error("Invalid XMM register size!")
             }
         }
 
         fun getXMM64(localId: Int, size: Int): Reg {
             if (localId !in 0..7)
-                throw Exception("There are only 8 XMM64 registers!")
+                error("There are only 8 XMM64 registers!")
             val id = localId + 8
             return when (size) {
                 128 -> Reg("xmm${id}", 128, Type.XMM64, localId)
                 256 -> Reg("ymm${id}", 256, Type.XMM64, localId)
                 512 -> Reg("zmm${id}", 512, Type.XMM64, localId)
-                else -> throw Exception("Invalid XMM64 register size!")
+                else -> error("Invalid XMM64 register size!")
             }
         }
 
         fun getZMMEX(localId: Int, size: Int): Reg {
             if (localId !in 0..7)
-                throw Exception("There are only 8 ZMMEX registers!")
+                error("There are only 8 ZMMEX registers!")
             val id = localId + 16
             if (size != 512)
-                throw Exception("Invalid ZMMEX register size!")
+                error("Invalid ZMMEX register size!")
             return  Reg("zmm${id}", 512, Type.ZMMEX, localId)
         }
     }
@@ -243,7 +243,7 @@ data class Reg(
     @Throws(Exception::class)
     fun reducedAsReg(env: X86Env, to: Int): Reg =
         if (env.target.amd64_v1 && to == 32 && totalWidth == 64)
-            throw Exception("Can't reduce 64-bit gp to 32-bit gp because of how amd64 works")
+            error("Can't reduce 64-bit gp to 32-bit gp because of how amd64 works")
         else
             reducedAsRegForce(to)
 
@@ -258,7 +258,7 @@ data class Reg(
         when (dest) {
             is Reg -> {
                 if (dest.totalWidth > totalWidth)
-                    throw Exception("Cannot move into destination with bigger size; use emitSignExtend() or emitZeroExtend() instead!")
+                    error("Cannot move into destination with bigger size; use emitSignExtend() or emitZeroExtend() instead!")
 
                 when (type) {
                     Type.GP,
@@ -277,7 +277,7 @@ data class Reg(
                             env.emit("  movq ${dest.name} ${name}")
                         }
 
-                        else -> throw Exception("Cannot move MM vector into dest ${dest.type}; use emitVecExtract() or emitMov(env, dest.reduced(64))")
+                        else -> error("Cannot move MM vector into dest ${dest.type}; use emitVecExtract() or emitMov(env, dest.reduced(64))")
                     }
 
                     else -> TODO("mov for src register type $type to dest ${dest.type}")
@@ -300,7 +300,7 @@ data class Reg(
 
     override fun emitStaticMask(env: X86Env, mask: Long, dest: Storage<X86Env>) {
         if (!this.isGP())
-            throw Exception("Can only static mask register values which are stored in GP or GP64EX registers")
+            error("Can only static mask register values which are stored in GP or GP64EX registers")
 
         dest.useInGPRegWriteBack(env, copyInBegin = true) { destReg ->
             env.emit("  and ${destReg.name}, $mask")
@@ -312,7 +312,7 @@ data class Reg(
 
     private fun binaryOp0(env: X86Env, other: Value<X86Env>, dest: Storage<X86Env>, op: String) {
         if (!this.isGP())
-            throw Exception("Can only perform scalar scalar binary op with GP reg!")
+            error("Can only perform scalar scalar binary op with GP reg!")
 
         if (dest == this) {
             when (other) {
@@ -325,7 +325,7 @@ data class Reg(
         else {
             dest.useInGPRegWriteBack(env, copyInBegin = false) { reg ->
                 if (!reg.isGP())
-                    throw Exception("Can only perform scalar binary op into GP reg!")
+                    error("Can only perform scalar binary op into GP reg!")
                 emitMov(env, reg)
                 reg.binaryOp0(env, other, reg, op)
             }
@@ -354,7 +354,7 @@ data class Reg(
 
     override fun <V : Value<X86Env>> emitSignedMul(env: X86Env, other: V, dest: Storage<X86Env>) {
         if (!this.isGP())
-            throw Exception("Can only perform scalar scalar binary op with GP reg!")
+            error("Can only perform scalar scalar binary op with GP reg!")
 
         when (other) {
             is Immediate -> dest.useInGPRegWriteBack(env, copyInBegin = false) { destReg ->
@@ -403,11 +403,11 @@ data class Reg(
     private fun emitCwdCdqCqo(env: X86Env) {
         assert(this.type == Type.GP && this.localId == 0)
         when (this.totalWidth) {
-            8 -> throw Exception("cwd/cdq/cqo not available for 8 bit regs")
+            8 -> error("cwd/cdq/cqo not available for 8 bit regs")
             16 -> env.emit("  cwd")
             32 -> env.emit("  cdq")
             64 -> env.emit("  cqo")
-            else -> throw Exception("wtf")
+            else -> error("wtf")
         }
     }
 
@@ -444,7 +444,7 @@ data class Reg(
 
             else -> {
                 if (!this.isGP())
-                    throw Exception("Can only perform scalar signed max on GP regs!")
+                    error("Can only perform scalar signed max on GP regs!")
 
                 dest.useInGPRegWriteBack(env) { dreg ->
                     other.useInGPReg(env) { reg ->
@@ -486,12 +486,12 @@ data class Reg(
                     require(selection.size == 4)
                     dest.useInRegWriteBack(env, Owner.Flags(CGEnv.Use.VECTOR_ARITHM, 128, 32, vxcc.cg.Type.VxINT), copyInBegin = false) { dreg ->
                         require(dreg.totalWidth == 128) {
-                            throw Exception("Incompatible destination storage")
+                            error("Incompatible destination storage")
                         }
                         env.emit("  shufps ${dreg.name}, ${this.name}, $sel")
                     }
                 }
-                null -> throw Exception("cannot perform vector operation on scalar value")
+                null -> error("cannot perform vector operation on scalar value")
                 else -> TODO("vec shuffle not x32")
             }
             else -> TODO("avx shuffle: permute")

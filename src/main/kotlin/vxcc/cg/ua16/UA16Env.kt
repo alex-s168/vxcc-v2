@@ -7,8 +7,8 @@ import vxcc.cg.*
 import vxcc.cg.utils.DefMemOpImpl
 import vxcc.cg.utils.FakeBitSlice
 import vxcc.cg.utils.FakeVec
-import vxcc.utils.Either
-import vxcc.utils.flatten
+import blitz.Either
+import blitz.flatten
 
 // TODO: bit slice immediates -> static alloc
 
@@ -42,7 +42,7 @@ class UA16Env(
     )
 
     fun firstFreeReg(): String =
-        registers.toList().firstOrNull { it.second == null }?.first ?: throw Exception("no free registers")
+        registers.toList().firstOrNull { it.second == null }?.first ?: error("no free registers")
 
     override fun forceAllocReg(flags: Owner.Flags, name: String): Owner<UA16Env> {
         if (name == "static") {
@@ -84,7 +84,7 @@ class UA16Env(
     override fun makeRegSize(size: Int): Int =
         if (size <= 8) 8
         else if (size <= 16) 16
-        else throw Exception("above native register size!")
+        else error("above native register size!")
 
     override fun nextUpNative(flags: Owner.Flags): Owner.Flags =
         flags.copy(totalWidth = makeRegSize(flags.totalWidth))
@@ -101,10 +101,10 @@ class UA16Env(
     }
 
     override fun immediate(value: Double): Value<UA16Env> =
-        throw Exception("floats not yet supported on ua16")
+        error("floats not yet supported on ua16")
 
     override fun immediate(value: Float): Value<UA16Env> =
-        throw Exception("floats not yet supported on ua16")
+        error("floats not yet supported on ua16")
 
     private var nextLocalLabelId = 0
 
@@ -200,10 +200,10 @@ class UA16Env(
     }
 
     override fun makeVecDouble(dpFloat: Value<UA16Env>, count: Int): Owner<UA16Env> =
-        throw Exception("ua16 currently does not support floats!")
+        error("ua16 currently does not support floats!")
 
     override fun makeVecFloat(spFloat: Value<UA16Env>, count: Int): Owner<UA16Env> =
-        throw Exception("ua16 currently does not support floats!")
+        error("ua16 currently does not support floats!")
 
     override fun dealloc(owner: Owner<UA16Env>) {
         val sto = owner.storage!!.flatten()

@@ -1,10 +1,10 @@
 package vxcc.cg.ua16
 
+import blitz.flatten
 import vxcc.cg.*
 import vxcc.cg.utils.DefArrayIndexImpl
 import vxcc.cg.utils.DefFunOpImpl
 import vxcc.cg.utils.DefStaticOpImpl
-import vxcc.utils.flatten
 import kotlin.arrayOf
 
 class UA16MemSto(
@@ -86,7 +86,7 @@ class UA16MemSto(
                                 env.emit("adc ${addrReg.name}, 1")
                                 env.emit("lod ${dreg.name}, ${addrReg.name}")
                             }
-                            else -> throw Exception("wtf")
+                            else -> error("wtf")
                         }
                     }
                 }
