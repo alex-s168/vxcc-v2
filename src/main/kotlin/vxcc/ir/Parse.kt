@@ -7,18 +7,6 @@ import blitz.flatten
 import blitz.str.splitWithNesting
 import blitz.term.Terminal
 
-/*
-Example code:
-
-%0 = i8 imm 10
-%1 = i8 imm 20
-%2 = i8 (add %0 %1)
-~ %0
-~ %1
-%2 <> eax
-(ret)
- */
-
 data class IrGlobalScope<E: CGEnv<E>>(
     val types: MutableMap<String, Owner.Flags> = mutableMapOf(),
     val functions: MutableList<String> = mutableListOf(),
