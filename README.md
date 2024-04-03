@@ -1,4 +1,4 @@
-# VXCC
+![VXCC](https://github.com/alex-s168/vxcc-v2/assets/63254202/2e307a1d-9cfb-421f-bdca-a6c00ad65a06)
 Compiler backend
 
 This repository contains:
